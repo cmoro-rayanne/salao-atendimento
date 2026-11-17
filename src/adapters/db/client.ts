@@ -10,3 +10,6 @@ export function createSql(databaseUrl: string): Sql {
     onnotice: () => {},
   });
 }
+
+/** Uma transação (`sql.begin`) usa a mesma interface de consulta; o tipo da biblioteca é só mais estreito. */
+export const asSql = (tx: unknown): Sql => tx as Sql;
