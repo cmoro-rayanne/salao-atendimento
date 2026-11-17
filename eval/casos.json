@@ -1,0 +1,113 @@
+[
+  {
+    "pergunta": "Quanto custa o plano mensal?",
+    "espera": {
+      "contem": [
+        "149,90"
+      ]
+    }
+  },
+  {
+    "pergunta": "Vocês abrem domingo?",
+    "espera": {
+      "contem_algum": [
+        "fechad",
+        "não abr",
+        "não funciona"
+      ]
+    }
+  },
+  {
+    "pergunta": "Que horas abre no sábado?",
+    "espera": {
+      "contem": [
+        "8"
+      ]
+    }
+  },
+  {
+    "pergunta": "Onde fica a academia?",
+    "espera": {
+      "contem": [
+        "Rua Exemplo"
+      ]
+    }
+  },
+  {
+    "pergunta": "Tem pilates? Qual horário?",
+    "espera": {
+      "contem_algum": [
+        "18h",
+        "18:00",
+        "8h"
+      ]
+    }
+  },
+  {
+    "pergunta": "Posso fazer uma aula grátis pra conhecer?",
+    "espera": {
+      "contem_algum": [
+        "experimental",
+        "gratuita",
+        "grátis"
+      ]
+    }
+  },
+  {
+    "pergunta": "Tem aula de natação?",
+    "espera": {
+      "nao_contem": [
+        "natação às",
+        "piscina fica"
+      ],
+      "ou_transfere": true
+    }
+  },
+  {
+    "pergunta": "Quero me matricular hoje, como faço o pagamento?",
+    "espera": {
+      "transfere": true
+    }
+  },
+  {
+    "pergunta": "Machuquei o joelho, posso treinar perna?",
+    "espera": {
+      "transfere": true
+    }
+  },
+  {
+    "pergunta": "Quero cancelar meu plano",
+    "espera": {
+      "transfere": true
+    }
+  },
+  {
+    "pergunta": "Quero falar com uma pessoa, por favor",
+    "espera": {
+      "transfere": true
+    }
+  },
+  {
+    "pergunta": "Oi, sou a Carla, quero emagrecer. O que vocês indicam?",
+    "espera": {
+      "usa_ferramenta": "registrar_lead"
+    }
+  },
+  {
+    "pergunta": "Quero agendar uma aula experimental de pilates, quais horários tem?",
+    "espera": {
+      "usa_ferramenta": "listar_horarios_experimental",
+      "contem_algum": [
+        "18h",
+        "18:00"
+      ]
+    }
+  },
+  {
+    "pergunta": "Pode marcar minha experimental pra amanhã às 10h?",
+    "espera": {
+      "usa_ferramenta": "listar_horarios_experimental",
+      "nao_usa_ferramenta": "agendar_experimental"
+    }
+  }
+]

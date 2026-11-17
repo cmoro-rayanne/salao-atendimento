@@ -1,0 +1,91 @@
+name: Release
+
+# Publica a imagem no GitHub Container Registry a cada push no dev e faz deploy em staging.
+# Produção: Actions → Release → "Run workflow", informando a tag (ex.: sha-1a2b3c4).
+# Os deploys só rodam se os secrets do ambiente existirem (ver deploy/README.md).
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag da imagem para produção (ex.: sha-1a2b3c4)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  image:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.IMAGE }}:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  staging:
+    needs: image
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      HOST: ${{ secrets.DEPLOY_HOST }}
+    steps:
+      - name: Deploy em staging
+        if: env.HOST != ''
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DIR: ${{ vars.DEPLOY_DIR || '/opt/whatsapp-ai-agent/deploy' }}
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh "$USER@$HOST" "cd '$DIR' && ./deploy.sh '${{ needs.image.outputs.tag }}'"
+      - name: Sem servidor configurado
+        if: env.HOST == ''
+        run: echo "Secrets de staging não configurados; imagem publicada, deploy pulado."
+
+  production:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Configure "Required reviewers" neste ambiente no GitHub: o deploy espera aprovação.
+    environment: production
+    steps:
+      - name: Deploy em produção
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DIR: ${{ vars.DEPLOY_DIR || '/opt/whatsapp-ai-agent/deploy' }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          [ -n "$HOST" ] || { echo "Secrets de produção não configurados"; exit 1; }
+          echo "$TAG" | grep -Eq '^[A-Za-z0-9._-]+$' || { echo "tag inválida"; exit 1; }
+          install -m 700 -d ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh "$USER@$HOST" "cd '$DIR' && ./deploy.sh '$TAG'"

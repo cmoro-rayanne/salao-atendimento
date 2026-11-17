@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+*.log
+coverage
+web/dist
+dump.rdb

@@ -1,0 +1,57 @@
+{
+  "name": "salao-atendimento",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agente de atendimento com IA no WhatsApp (Chatwoot + Node.js) — RMoro Desenvolvimento",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "build": "tsc -p tsconfig.build.json && node -e \"require('fs').cpSync('src/adapters/db/migrations','dist/adapters/db/migrations',{recursive:true})\"",
+    "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
+    "migrate": "tsx src/adapters/db/migrate.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web/tsconfig.json",
+    "migrate:prod": "node dist/adapters/db/migrate.js",
+    "eval": "tsx eval/run-eval.ts",
+    "admin:create": "tsx src/scripts/create-admin.ts",
+    "admin:create:prod": "node dist/scripts/create-admin.js",
+    "kb:import": "tsx src/scripts/import-knowledge.ts",
+    "kb:import:prod": "node dist/scripts/import-knowledge.js",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "vite build --config web/vite.config.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/static": "^10.1.11",
+    "bullmq": "^6.7.6",
+    "fastify": "^5.12.8",
+    "ioredis": "^6.0.0",
+    "jose": "^6.2.17",
+    "pino": "^10.4.0",
+    "postgres": "^4.1.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "eslint": "^10.15.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

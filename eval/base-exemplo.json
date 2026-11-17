@@ -1,0 +1,13 @@
+{
+  "academia": "Academia Exemplo",
+  "aviso": "Base FICTÍCIA para avaliação. Troque pelos dados reais da Cia da Forma assim que a academia enviar.",
+  "versao": 1,
+  "itens": [
+    { "categoria": "Endereço", "conteudo": "Rua Exemplo, 100 - Centro, Curitiba/PR. Estacionamento conveniado na rua de trás." },
+    { "categoria": "Horários", "conteudo": "Academia: segunda a sexta 6h às 22h; sábado 8h às 14h; domingo fechado. Recepção: segunda a sexta 7h às 21h; sábado 8h às 13h." },
+    { "categoria": "Planos", "conteudo": "Mensal: R$ 149,90. Trimestral: R$ 399,90. Semestral: R$ 719,90. Matrícula isenta neste mês." },
+    { "categoria": "Modalidades", "conteudo": "Musculação (livre), funcional (seg/qua/sex 7h e 19h), pilates solo (ter/qui 8h e 18h), spinning (seg a sex 18h)." },
+    { "categoria": "Aula experimental", "conteudo": "Uma aula experimental gratuita por pessoa, em qualquer modalidade, com agendamento." },
+    { "categoria": "Regras", "conteudo": "Obrigatório toalha e calçado fechado. Avaliação física inclusa nos planos trimestral e semestral." }
+  ]
+}

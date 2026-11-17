@@ -1,0 +1,12 @@
+# Chatwoot (caixa de entrada da equipe).
+{$CHATWOOT_DOMAIN} {
+	reverse_proxy chatwoot-web:3000
+}
+
+# Painel da academia. O webhook do Chatwoot chega pela rede interna do Docker
+# (http://agent-api:3000/webhooks/...), então aqui ele é bloqueado.
+{$PANEL_DOMAIN} {
+	@webhooks path /webhooks/*
+	respond @webhooks 404
+	reverse_proxy agent-api:3000
+}
