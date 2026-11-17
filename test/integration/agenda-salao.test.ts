@@ -185,6 +185,47 @@ describe.skipIf(!dbUrl)('agenda do salão no Postgres', () => {
     expect((await repo.book(book({ startsAt: nextTuesday(10) }))).kind).toBe('booked');
   });
 
+  describe('lembrete', () => {
+    it('devolve os dados do envio e marca o envio uma única vez', async () => {
+      const r = await repo.book(book());
+      if (r.kind !== 'booked') throw new Error('esperava booked');
+      const info = await repo.getForReminder(r.appointment.id);
+      expect(info).toMatchObject({
+        status: 'agendado',
+        accountId: 1,
+        conversationId: 10,
+        leadName: 'Cliente 1',
+        serviceName: 'Corte',
+        professionalName: 'Ana',
+        optedOut: false,
+        reminderSentAt: null,
+      });
+      expect(await repo.markReminderSent(r.appointment.id)).toBe(true);
+      expect(await repo.markReminderSent(r.appointment.id)).toBe(false);
+      expect((await repo.getForReminder(r.appointment.id))?.reminderSentAt).toBeInstanceOf(Date);
+      await repo.clearReminderSent(r.appointment.id);
+      expect(await repo.markReminderSent(r.appointment.id)).toBe(true);
+    });
+
+    it('reflete cancelamento e opt-out; agendamento inexistente devolve null', async () => {
+      const r = await repo.book(book());
+      if (r.kind !== 'booked') throw new Error('esperava booked');
+      await sql`update leads set opted_out_at = now() where phone = '+5541999990001'`;
+      expect((await repo.getForReminder(r.appointment.id))?.optedOut).toBe(true);
+      await repo.cancel(tenant, r.appointment.id, '+5541999990001', new Date());
+      expect((await repo.getForReminder(r.appointment.id))?.status).toBe('cancelado');
+      expect(await repo.getForReminder(999_999)).toBeNull();
+    });
+
+    it('remarcar zera a marca de envio', async () => {
+      const r = await repo.book(book());
+      if (r.kind !== 'booked') throw new Error('esperava booked');
+      await repo.markReminderSent(r.appointment.id);
+      await repo.reschedule({ tenantId: tenant, appointmentId: r.appointment.id, phone: '+5541999990001', startsAt: nextTuesday(15), now: new Date() });
+      expect((await repo.getForReminder(r.appointment.id))?.reminderSentAt).toBeNull();
+    });
+  });
+
   describe('cadastro (lado da IA)', () => {
     it('lista só serviços ativos do próprio salão e profissionais que fazem o serviço', async () => {
       await sql`update salon_services set active = false where id = ${escova}`;

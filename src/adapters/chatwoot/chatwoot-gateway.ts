@@ -1,6 +1,7 @@
 import type { AgentMessage } from '../../modules/agent/ports.js';
 import type { ConversationGateway, ConversationSnapshot } from '../../modules/conversation/ports.js';
 import type { TeamInbox } from '../../modules/handoff/ports.js';
+import type { ReminderSender as AppointmentReminderSender } from '../../modules/appointments/ports.js';
 import type { ReminderSender } from '../../modules/trial-classes/ports.js';
 import type { ChatwootClient, ChatwootMessage } from './chatwoot-client.js';
 
@@ -16,11 +17,14 @@ export interface ReminderTemplate {
   body: string;
 }
 
+export const DEFAULT_APPOINTMENT_REMINDER_BODY =
+  'Oi, {{1}}! Passando para lembrar do seu horário: {{2}} com {{3}}, {{4}}. Se precisar remarcar ou cancelar, é só responder por aqui.';
+
 export const DEFAULT_REMINDER_BODY =
   'Olá, {{1}}! Lembrete da sua aula experimental de {{2}}: {{3}}. Se precisar remarcar, é só responder aqui.';
 
 /** Implementa as portas de conversa, equipe e lembrete sobre a API do Chatwoot. */
-export class ChatwootGateway implements ConversationGateway, TeamInbox, ReminderSender {
+export class ChatwootGateway implements ConversationGateway, TeamInbox, ReminderSender, AppointmentReminderSender {
   constructor(
     private readonly client: ChatwootClient,
     private readonly reminderTemplate: ReminderTemplate = {
@@ -28,7 +32,28 @@ export class ChatwootGateway implements ConversationGateway, TeamInbox, Reminder
       language: 'pt_BR',
       body: DEFAULT_REMINDER_BODY,
     },
+    private readonly appointmentTemplate: ReminderTemplate = {
+      name: 'lembrete_agendamento',
+      language: 'pt_BR',
+      body: DEFAULT_APPOINTMENT_REMINDER_BODY,
+    },
   ) {}
+
+  async sendAppointmentReminder(
+    accountId: number,
+    conversationId: number,
+    p: { name: string; service: string; professional: string; when: string },
+  ): Promise<void> {
+    const params = [p.name, p.service, p.professional, p.when];
+    const content = params.reduce((text, value, i) => text.replaceAll(`{{${i + 1}}}`, value), this.appointmentTemplate.body);
+    await this.client.sendTemplate(accountId, conversationId, {
+      name: this.appointmentTemplate.name,
+      language: this.appointmentTemplate.language,
+      category: 'UTILITY',
+      params,
+      content,
+    });
+  }
 
   async sendTrialReminder(
     accountId: number,

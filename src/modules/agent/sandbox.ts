@@ -70,6 +70,9 @@ export async function testAgentAnswer(llm: LlmClient, input: SandboxInput): Prom
         cancel: async () => ({ kind: 'not_found' }),
         listUpcoming: async () => [],
         setReminderJob: async () => {},
+        getForReminder: async () => null,
+        markReminderSent: async () => false,
+        clearReminderSent: async () => {},
       },
     },
   }).map((tool) => ({

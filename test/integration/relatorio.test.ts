@@ -60,6 +60,25 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
     const [lead] = await sql<{ id: string }[]>`select id from leads where phone = '+5541911110001'`;
     await sql`insert into trial_bookings (slot_id, lead_id, status) values
       (${s1!}, ${lead!.id}, 'compareceu'), (${s2!}, ${lead!.id}, 'faltou'), (${s3!}, ${lead!.id}, 'cancelada'), (${s4!}, ${lead!.id}, 'agendada')`;
+
+    // Salão: serviços, profissionais e agendamentos de novembro (concluído x2 de Corte, falta de Escova,
+    // cancelado de Corte, agendado futuro de Corte); um em dezembro e um de outro salão ficam de fora.
+    const sv = async (t: number, name: string) =>
+      Number((await sql<{ id: string }[]>`insert into salon_services (tenant_id, name, duration_min) values (${t}, ${name}, 30) returning id`)[0]!.id);
+    const pr = async (t: number, name: string) =>
+      Number((await sql<{ id: string }[]>`insert into professionals (tenant_id, name) values (${t}, ${name}) returning id`)[0]!.id);
+    const [corte, escova, outroServico] = [await sv(t1, 'Corte'), await sv(t1, 'Escova'), await sv(t2, 'Corte')];
+    const [ana, outraProf] = [await pr(t1, 'Ana'), await pr(t2, 'Zé')];
+    const ap = (t: number, prof: number, svc: number, at: string, status: string) =>
+      sql`insert into appointments (tenant_id, lead_id, professional_id, service_id, starts_at, ends_at, status)
+          values (${t}, ${lead!.id}, ${prof}, ${svc}, ${br(at)}, ${br(at)}::timestamptz + interval '30 minutes', ${status})`;
+    await ap(t1, ana, corte, '2026-11-03T09:00:00', 'concluido');
+    await ap(t1, ana, corte, '2026-11-04T09:00:00', 'concluido');
+    await ap(t1, ana, escova, '2026-11-05T09:00:00', 'faltou');
+    await ap(t1, ana, corte, '2026-11-06T09:00:00', 'cancelado');
+    await ap(t1, ana, corte, '2026-11-20T09:00:00', 'agendado');
+    await ap(t1, ana, corte, '2026-12-02T09:00:00', 'agendado');
+    await ap(t2, outraProf, outroServico, '2026-11-03T09:00:00', 'concluido');
   });
 
   afterAll(async () => {
@@ -78,7 +97,13 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
     expect(report.partial).toBe(false);
     expect(report.conversations).toBe(2);
     expect(report.resolvedByAiShare).toBe(0.5);
-    expect(report.funnel.map((f) => f.count)).toEqual([2, 1, 2, 1, 1]);
+    expect(report.funnel.map((f) => f.count)).toEqual([2, 4, 2]);
+    expect(report.appointments).toEqual({ scheduled: 4, completed: 2, noShow: 1, cancelled: 1 });
+    expect(report.noShowShare).toBeCloseTo(1 / 3);
+    expect(report.topServices).toEqual([
+      { name: 'Corte', count: 3 },
+      { name: 'Escova', count: 1 },
+    ]);
     expect(report.handoffs.byCategory).toEqual([{ label: 'Matrícula ou pagamento', count: 1 }]);
     expect(report.conversationsByHour[22]).toBe(1);
     expect(report.conversationsByHour[10]).toBe(1);

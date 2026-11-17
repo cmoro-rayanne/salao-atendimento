@@ -2,7 +2,7 @@ import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { ChatwootClient } from './adapters/chatwoot/chatwoot-client.js';
-import { ChatwootGateway, DEFAULT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
+import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY, DEFAULT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { PgBookingRepository } from './adapters/db/booking-repository.js';
 import { createSql } from './adapters/db/client.js';
@@ -15,6 +15,11 @@ import {
 } from './adapters/db/repositories.js';
 import { AnthropicLlmClient, LlmError } from './adapters/llm/anthropic-client.js';
 import { RedisConversationLock } from './adapters/queue/redis-lock.js';
+import {
+  APPOINTMENT_REMINDER_QUEUE,
+  BullAppointmentReminderScheduler,
+  type AppointmentReminderJob,
+} from './adapters/queue/appointment-reminder-queue.js';
 import { BullReminderScheduler, REMINDER_QUEUE, type ReminderJob } from './adapters/queue/reminder-queue.js';
 import { BullConversationQueue, REPLY_QUEUE } from './adapters/queue/reply-queue.js';
 import { createAlerts } from './adapters/alerts/create-alerts.js';
@@ -27,6 +32,7 @@ import {
   replyToConversation,
   type ReplyDeps,
 } from './modules/conversation/reply-to-conversation.js';
+import { sendAppointmentReminder } from './modules/appointments/send-reminder.js';
 import { sendTrialReminder } from './modules/trial-classes/send-reminder.js';
 
 const BUSY_RETRY_MS = 5_000;
@@ -41,11 +47,15 @@ const chatwoot = new ChatwootGateway(new ChatwootClient(env.CHATWOOT_BASE_URL, e
   name: env.REMINDER_TEMPLATE_NAME,
   language: env.REMINDER_TEMPLATE_LANG,
   body: DEFAULT_REMINDER_BODY,
+}, {
+  name: env.APPOINTMENT_REMINDER_TEMPLATE_NAME,
+  language: env.REMINDER_TEMPLATE_LANG,
+  body: DEFAULT_APPOINTMENT_REMINDER_BODY,
 });
 const bookings = new PgBookingRepository(sql);
 const reminders = new BullReminderScheduler(redis);
-/** Lembrete do salão entra na entrega 4 (spec 0013): até lá a fila só atende o código antigo da experimental. */
-const noReminders = { schedule: async () => 'sem-lembrete', cancel: async () => {} };
+const appointmentRepo = new PgAppointmentRepository(sql);
+const appointmentReminders = new BullAppointmentReminderScheduler(redis);
 const now = () => new Date();
 
 const deps: ReplyDeps = {
@@ -63,7 +73,7 @@ const deps: ReplyDeps = {
   lock: new RedisConversationLock(redis),
   leads: new PgLeadRepository(sql),
   handoff: { inbox: chatwoot, handoffs: new PgHandoffRepository(sql) },
-  agenda: { catalog: new PgCatalogRepository(sql), appointments: new PgAppointmentRepository(sql), reminders: noReminders, now },
+  agenda: { catalog: new PgCatalogRepository(sql), appointments: appointmentRepo, reminders: appointmentReminders, now },
 };
 
 const worker = new Worker<ReplyJob>(
@@ -128,6 +138,26 @@ reminderWorker.on('failed', (job, err) => {
   }
 });
 
+const appointmentReminderWorker = new Worker<AppointmentReminderJob>(
+  APPOINTMENT_REMINDER_QUEUE,
+  async (job) => {
+    const outcome = await sendAppointmentReminder({ appointments: appointmentRepo, sender: chatwoot, now }, job.data.appointmentId);
+    log.info({ jobId: job.id, appointmentId: job.data.appointmentId, outcome }, 'lembrete de agendamento');
+  },
+  { connection: redis, concurrency: 2 },
+);
+
+appointmentReminderWorker.on('failed', (job, err) => {
+  const exhausted = job && job.attemptsMade >= (job.opts.attempts ?? 1);
+  log.error({ jobId: job?.id, err, dlq: exhausted }, exhausted ? 'lembrete de agendamento foi para a DLQ' : 'lembrete de agendamento falhou, vai tentar de novo');
+  if (exhausted && job) {
+    void alerts.notify({
+      key: `appointment-reminder-dlq:${job.data.appointmentId}`,
+      text: `O lembrete do agendamento ${job.data.appointmentId} não foi enviado: ${err.message}. Confira o template na Meta.`,
+    });
+  }
+});
+
 // Batimento para o /health/ready da API saber que o worker está vivo.
 const heartbeat = setInterval(() => {
   redis.set(WORKER_HEARTBEAT_KEY, String(Date.now()), 'EX', 300).catch((err: unknown) => log.warn({ err }, 'heartbeat falhou'));
@@ -138,7 +168,9 @@ async function shutdown(): Promise<void> {
   clearInterval(heartbeat);
   await worker.close();
   await reminderWorker.close();
+  await appointmentReminderWorker.close();
   await reminders.close();
+  await appointmentReminders.close();
   await queue.close();
   await redis.quit();
   await sql.end();

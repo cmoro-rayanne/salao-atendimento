@@ -105,6 +105,34 @@ export interface AppointmentRepository {
   /** Agendamentos futuros ativos do contato. */
   listUpcoming(tenantId: number, phone: string, now: Date): Promise<Appointment[]>;
   setReminderJob(appointmentId: number, jobId: string | null): Promise<void>;
+  /** Dados para o envio do lembrete; null se o agendamento não existe. */
+  getForReminder(appointmentId: number): Promise<ReminderInfo | null>;
+  /** Marca o envio só se ainda não foi marcado (true = esta chamada marcou). */
+  markReminderSent(appointmentId: number): Promise<boolean>;
+  clearReminderSent(appointmentId: number): Promise<void>;
+}
+
+export interface ReminderInfo {
+  appointmentId: number;
+  status: 'agendado' | 'cancelado' | 'concluido' | 'faltou';
+  startsAt: Date;
+  reminderSentAt: Date | null;
+  /** A pessoa pediu para não receber mensagens (LGPD). */
+  optedOut: boolean;
+  accountId: number | null;
+  conversationId: number | null;
+  leadName: string | null;
+  serviceName: string;
+  professionalName: string;
+  timeZone: string;
+}
+
+export interface ReminderSender {
+  sendAppointmentReminder(
+    accountId: number,
+    conversationId: number,
+    params: { name: string; service: string; professional: string; when: string },
+  ): Promise<void>;
 }
 
 export interface ReminderScheduler {

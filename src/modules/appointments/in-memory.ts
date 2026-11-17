@@ -12,6 +12,7 @@ import type {
   CancelResult,
   CatalogRepository,
   Professional,
+  ReminderInfo,
   RescheduleRequest,
   RescheduleResult,
   SalonService,
@@ -28,6 +29,10 @@ interface Stored {
   endsAt: Date;
   status: 'agendado' | 'cancelado';
   reminderJobId: string | null;
+  reminderSentAt: Date | null;
+  leadName: string | null;
+  accountId: number | null;
+  conversationId: number | null;
 }
 
 export class InMemoryAgenda implements CatalogRepository, AppointmentRepository {
@@ -35,6 +40,8 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository 
   professionals: (Professional & { hours: WorkingInterval[]; timeOff: { startsAt: Date; endsAt: Date }[] })[] = [];
   stored: Stored[] = [];
   private nextId = 1;
+  /** Telefones que pediram para não receber mensagens. */
+  optedOut = new Set<string>();
 
   constructor(
     public config: AgendaSettings = { timeZone: 'America/Sao_Paulo', slotStepMin: 30, minNoticeMin: 60, maxDaysAhead: 30 },
@@ -144,6 +151,10 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository 
       endsAt,
       status: 'agendado',
       reminderJobId: null,
+      reminderSentAt: null,
+      leadName: req.contact.name,
+      accountId: req.conversation?.accountId ?? null,
+      conversationId: req.conversation?.conversationId ?? null,
     };
     this.stored.push(row);
     return { kind: 'booked', appointment: this.view(row) };
@@ -169,7 +180,7 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository 
     if (this.overlapping(req.startsAt, endsAt, (a) => a.professionalId === professionalId, cur.id)) return { kind: 'busy' };
 
     const reminderJobId = cur.reminderJobId;
-    Object.assign(cur, { professionalId, startsAt: req.startsAt, endsAt, reminderJobId: null });
+    Object.assign(cur, { professionalId, startsAt: req.startsAt, endsAt, reminderJobId: null, reminderSentAt: null });
     return { kind: 'rescheduled', appointment: this.view(cur), reminderJobId };
   }
 
@@ -190,5 +201,36 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository 
   async setReminderJob(appointmentId: number, jobId: string | null): Promise<void> {
     const a = this.stored.find((x) => x.id === appointmentId);
     if (a) a.reminderJobId = jobId;
+  }
+
+  async getForReminder(appointmentId: number): Promise<ReminderInfo | null> {
+    const a = this.stored.find((x) => x.id === appointmentId);
+    if (!a) return null;
+    const v = this.view(a);
+    return {
+      appointmentId: a.id,
+      status: a.status,
+      startsAt: a.startsAt,
+      reminderSentAt: a.reminderSentAt,
+      optedOut: this.optedOut.has(a.phone),
+      accountId: a.accountId,
+      conversationId: a.conversationId,
+      leadName: a.leadName,
+      serviceName: v.serviceName,
+      professionalName: v.professionalName,
+      timeZone: this.config.timeZone,
+    };
+  }
+
+  async markReminderSent(appointmentId: number): Promise<boolean> {
+    const a = this.stored.find((x) => x.id === appointmentId);
+    if (!a || a.reminderSentAt) return false;
+    a.reminderSentAt = new Date();
+    return true;
+  }
+
+  async clearReminderSent(appointmentId: number): Promise<void> {
+    const a = this.stored.find((x) => x.id === appointmentId);
+    if (a) a.reminderSentAt = null;
   }
 }

@@ -58,8 +58,8 @@ estético, transfere para humano em reclamação ou alergia/reação). Base de e
 ## Entregas em ordem (PRs pequenos)
 1. ~~Esta spec + `availability.ts` com testes.~~ Feito.
 2. ~~Migration, repositórios Postgres e testes de integração (inclui concorrência na mesma vaga).~~ Feito (`PgAppointmentRepository`, `PgCatalogRepository`).
-3. ~~Comandos/queries + ferramentas da IA + prompt + eval do salão.~~ Feito, **exceto rodar `npm run eval`** (precisa de `LLM_API_KEY`; casos e base do Studio Aurora já escritos). Lembrete fica desligado até a entrega 4 (`noReminders` em `worker.ts`).
-4. Lembrete (fila) e relatório.
+3. ~~Comandos/queries + ferramentas da IA + prompt + eval do salão.~~ Feito, **exceto rodar `npm run eval`** (precisa de `LLM_API_KEY`; casos e base do Studio Aurora já escritos). 
+4. ~~Lembrete (fila) e relatório.~~ Feito: fila `appointment-reminder` + worker com DLQ, template `lembrete_agendamento` na Meta (`{{1}}` nome, `{{2}}` serviço, `{{3}}` profissional, `{{4}}` data e hora; env `APPOINTMENT_REMINDER_TEMPLATE_NAME`), relatório com agendamentos, faltas, cancelados e serviços mais pedidos. **Antes de usar em produção: cadastrar e aprovar o template na Meta.**
 5. Painel: serviços, profissionais, agenda.
 6. Limpeza do código da academia (trial) e base de exemplo.
 
@@ -69,6 +69,6 @@ estético, transfere para humano em reclamação ou alergia/reação). Base de e
 - [x] Banco recusa sobreposição mesmo se a regra da aplicação falhar.
 - [x] "Qualquer profissional" escolhe quem tem o horário livre e respeita quem faz o serviço.
 - [x] Remarcar é atômico: se o novo horário estiver ocupado, o antigo continua valendo.
-- [ ] Cancelar libera o horário e remove o lembrete; lembrete não sai para cancelado nem duas vezes.
+- [x] Cancelar libera o horário e remove o lembrete; lembrete não sai para cancelado nem duas vezes.
 - [ ] A IA não agenda sem serviço, horário e confirmação da cliente; não informa preço fora do cadastro.
 - [x] Salão não vê nem altera dados de outro salão.

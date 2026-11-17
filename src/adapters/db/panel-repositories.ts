@@ -192,19 +192,23 @@ export class PgReportRepository implements ReportRepository {
       group by reason
     `;
 
-    const [leads] = await sql<{ interested: number; enrollments: number }[]>`
-      select
-        count(*) filter (where created_at >= ${from} and created_at < ${to}
-                           and (goal is not null or modality is not null))::int as interested,
-        count(*) filter (where enrolled_at >= ${from} and enrolled_at < ${to})::int as enrollments
-      from leads where tenant_id = ${tenantId}
+    const [appts] = await sql<{ scheduled: number; completed: number; no_show: number; cancelled: number }[]>`
+      select count(*) filter (where status <> 'cancelado')::int as scheduled,
+             count(*) filter (where status = 'concluido')::int as completed,
+             count(*) filter (where status = 'faltou')::int as no_show,
+             count(*) filter (where status = 'cancelado')::int as cancelled
+      from appointments
+      where tenant_id = ${tenantId} and starts_at >= ${from} and starts_at < ${to}
     `;
 
-    const [trials] = await sql<{ total: number; attended: number }[]>`
-      select count(*)::int as total, count(*) filter (where b.status = 'compareceu')::int as attended
-      from trial_bookings b join trial_slots s on s.id = b.slot_id
-      where s.tenant_id = ${tenantId} and s.starts_at >= ${from} and s.starts_at < ${to}
-        and b.status <> 'cancelada'
+    const topServices = await sql<{ name: string; count: number }[]>`
+      select sv.name, count(*)::int as count
+      from appointments a join salon_services sv on sv.id = a.service_id
+      where a.tenant_id = ${tenantId} and a.starts_at >= ${from} and a.starts_at < ${to}
+        and a.status <> 'cancelado'
+      group by sv.id, sv.name
+      order by count desc, sv.name
+      limit 5
     `;
 
     const hours = await sql<{ hour: number; count: number }[]>`
@@ -233,10 +237,13 @@ export class PgReportRepository implements ReportRepository {
       conversations: conv?.total ?? 0,
       conversationsWithoutHandoff: conv?.without_handoff ?? 0,
       handoffReasons: reasons.map((r) => ({ reason: r.reason, count: r.count })),
-      interestedLeads: leads?.interested ?? 0,
-      trialClasses: trials?.total ?? 0,
-      attended: trials?.attended ?? 0,
-      enrollments: leads?.enrollments ?? 0,
+      appointments: {
+        scheduled: appts?.scheduled ?? 0,
+        completed: appts?.completed ?? 0,
+        noShow: appts?.no_show ?? 0,
+        cancelled: appts?.cancelled ?? 0,
+      },
+      topServices: topServices.map((t) => ({ name: t.name, count: t.count })),
       conversationsByHour,
       aiCostUsd: ai?.cost === null || ai?.cost === undefined ? null : Number(ai.cost),
       medianLatencyMs: ai?.median === null || ai?.median === undefined ? null : Math.round(Number(ai.median)),

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError, type Me, type Report, type UnansweredQuestion } from './api';
 import { brl, fmt, pct } from './format';
 
-const FUNNEL_COLORS = ['var(--ink)', 'var(--plate-blue)', 'var(--plate-yellow)', 'var(--plate-red)', 'var(--plate-green)'];
+const FUNNEL_COLORS = ['var(--ink)', 'var(--plate-blue)', 'var(--plate-green)'];
 
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number) as [number, number];
@@ -18,15 +18,12 @@ function monthTitle(month: string): string {
 
 function headline(r: Report): string {
   if (r.conversations === 0) return 'Nenhuma conversa atendida pela IA neste período.';
-  const trial = r.funnel.find((f) => f.key === 'trial')?.count ?? 0;
-  const enrolled = r.funnel.find((f) => f.key === 'enrolled')?.count ?? 0;
+  const { scheduled } = r.appointments;
   const first = `A IA atendeu ${r.conversations} ${r.conversations === 1 ? 'conversa' : 'conversas'}${
     r.resolvedByAiShare !== null ? ` e resolveu ${pct(r.resolvedByAiShare)} sem precisar da equipe` : ''
   }.`;
-  if (!trial) return first;
-  return `${first} ${trial === 1 ? 'Houve 1 aula experimental' : `Houve ${trial} aulas experimentais`} e ${enrolled} ${
-    enrolled === 1 ? 'matrícula' : 'matrículas'
-  } no mês.`;
+  if (!scheduled) return first;
+  return `${first} ${scheduled === 1 ? 'Há 1 agendamento' : `Há ${scheduled} agendamentos`} no mês.`;
 }
 
 export function ReportPage({ me }: { me: Me }) {
@@ -85,7 +82,7 @@ export function ReportPage({ me }: { me: Me }) {
 
       <section className="card" aria-labelledby="funil-titulo">
         <div className="card-head">
-          <h2 id="funil-titulo">Da conversa à matrícula</h2>
+          <h2 id="funil-titulo">Da conversa ao atendimento</h2>
           <p className="hint">Barras na mesma escala; ao lado, quanto passou para a etapa seguinte</p>
         </div>
         <ol className="funnel">
@@ -108,9 +105,52 @@ export function ReportPage({ me }: { me: Me }) {
           })}
         </ol>
         <p className="hint small">
-          Contatos com interesse: quem disse objetivo ou modalidade. Aulas e presenças contam pelo dia da aula.
+          Agendamentos e atendimentos contam pelo dia do horário marcado; cancelados ficam de fora do funil.
         </p>
       </section>
+
+      <div className="report-grid">
+        <section className="card" aria-labelledby="agenda-titulo">
+          <h2 id="agenda-titulo">Agenda do mês</h2>
+          <ul className="reasons">
+            <li>
+              <span className="reason-line">
+                <span className="strong">Faltas</span>
+                <span className="strong num">{report.appointments.noShow}</span>
+              </span>
+              <span className="sub">
+                {report.noShowShare === null ? 'Marque concluído ou faltou na agenda para ver a taxa.' : `${pct(report.noShowShare)} dos horários já encerrados`}
+              </span>
+            </li>
+            <li>
+              <span className="reason-line">
+                <span className="strong">Cancelados</span>
+                <span className="strong num">{report.appointments.cancelled}</span>
+              </span>
+            </li>
+          </ul>
+        </section>
+        <section className="card" aria-labelledby="servicos-titulo">
+          <h2 id="servicos-titulo">Serviços mais pedidos</h2>
+          {report.topServices.length === 0 ? (
+            <p className="hint">Nenhum agendamento neste período.</p>
+          ) : (
+            <ul className="reasons">
+              {report.topServices.map((t) => (
+                <li key={t.name}>
+                  <span className="reason-line">
+                    <span className="strong">{t.name}</span>
+                    <span className="strong num">{t.count}</span>
+                  </span>
+                  <span className="meter" aria-hidden="true">
+                    <span style={{ width: `${(t.count / (report.topServices[0]?.count || 1)) * 100}%` }} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
       <div className="report-grid">
         <section className="card" aria-labelledby="motivos-titulo">

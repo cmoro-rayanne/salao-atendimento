@@ -7,6 +7,7 @@ import type {
   CancelResult,
   CatalogRepository,
   Professional,
+  ReminderInfo,
   RescheduleRequest,
   RescheduleResult,
   SalonService,
@@ -276,5 +277,59 @@ export class PgAppointmentRepository implements AppointmentRepository {
 
   async setReminderJob(appointmentId: number, jobId: string | null): Promise<void> {
     await this.sql`update appointments set reminder_job_id = ${jobId} where id = ${appointmentId}`;
+  }
+
+  async getForReminder(appointmentId: number): Promise<ReminderInfo | null> {
+    const [r] = await this.sql<
+      {
+        id: string;
+        status: ReminderInfo['status'];
+        starts_at: Date;
+        reminder_sent_at: Date | null;
+        opted_out_at: Date | null;
+        chatwoot_account_id: string | null;
+        chatwoot_conversation_id: string | null;
+        name: string | null;
+        service_name: string;
+        professional_name: string;
+        time_zone: string;
+      }[]
+    >`
+      select a.id, a.status, a.starts_at, a.reminder_sent_at, l.opted_out_at, a.chatwoot_account_id,
+             a.chatwoot_conversation_id, l.name, sv.name as service_name, p.name as professional_name, t.time_zone
+      from appointments a
+      join leads l on l.id = a.lead_id
+      join salon_services sv on sv.id = a.service_id
+      join professionals p on p.id = a.professional_id
+      join tenants t on t.id = a.tenant_id
+      where a.id = ${appointmentId}
+    `;
+    if (!r) return null;
+    return {
+      appointmentId: Number(r.id),
+      status: r.status,
+      startsAt: r.starts_at,
+      reminderSentAt: r.reminder_sent_at,
+      optedOut: r.opted_out_at !== null,
+      accountId: r.chatwoot_account_id === null ? null : Number(r.chatwoot_account_id),
+      conversationId: r.chatwoot_conversation_id === null ? null : Number(r.chatwoot_conversation_id),
+      leadName: r.name,
+      serviceName: r.service_name,
+      professionalName: r.professional_name,
+      timeZone: r.time_zone,
+    };
+  }
+
+  async markReminderSent(appointmentId: number): Promise<boolean> {
+    const rows = await this.sql`
+      update appointments set reminder_sent_at = now()
+      where id = ${appointmentId} and reminder_sent_at is null
+      returning id
+    `;
+    return rows.length === 1;
+  }
+
+  async clearReminderSent(appointmentId: number): Promise<void> {
+    await this.sql`update appointments set reminder_sent_at = null where id = ${appointmentId}`;
   }
 }

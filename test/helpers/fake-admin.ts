@@ -178,7 +178,8 @@ export async function fakeAdmin() {
         return {
           conversations: 10, conversationsWithoutHandoff: 7,
           handoffReasons: [{ reason: 'quer se matricular', count: 2 }, { reason: 'informação não está na base', count: 1 }],
-          interestedLeads: 6, trialClasses: 4, attended: 3, enrollments: 1,
+          appointments: { scheduled: 4, completed: 2, noShow: 1, cancelled: 1 },
+          topServices: [{ name: 'Corte', count: 3 }, { name: 'Escova', count: 1 }],
           conversationsByHour: Array.from({ length: 24 }, (_, h) => (h === 22 ? 4 : h === 10 ? 6 : 0)),
           aiCostUsd: 2, medianLatencyMs: 5400, receptionHours: { open: 7, close: 21 },
         };

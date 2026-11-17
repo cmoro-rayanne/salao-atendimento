@@ -22,6 +22,8 @@ const EnvSchema = z.object({
 
   REMINDER_TEMPLATE_NAME: z.string().default('lembrete_aula_experimental'),
   REMINDER_TEMPLATE_LANG: z.string().default('pt_BR'),
+  /** Template aprovado na Meta para o lembrete de agendamento do salão ({{1}} nome, {{2}} serviço, {{3}} profissional, {{4}} data e hora). */
+  APPOINTMENT_REMINDER_TEMPLATE_NAME: z.string().default('lembrete_agendamento'),
 
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_PER_DAY: z.coerce.number().int().positive().default(150),

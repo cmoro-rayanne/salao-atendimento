@@ -75,6 +75,9 @@ export interface Report {
   conversations: number;
   resolvedByAiShare: number | null;
   funnel: Array<{ key: string; label: string; count: number }>;
+  appointments: { scheduled: number; completed: number; noShow: number; cancelled: number };
+  noShowShare: number | null;
+  topServices: Array<{ name: string; count: number }>;
   handoffs: { total: number; byCategory: Array<{ label: string; count: number }> };
   conversationsByHour: number[];
   receptionHours: { open: number; close: number } | null;

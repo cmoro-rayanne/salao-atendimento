@@ -11,6 +11,11 @@ export interface MonthlyReport {
   conversations: number;
   resolvedByAiShare: number | null;
   funnel: Array<{ key: string; label: string; count: number }>;
+  /** Agendamentos do mês (pelo dia do horário). `scheduled` não inclui cancelados. */
+  appointments: { scheduled: number; completed: number; noShow: number; cancelled: number };
+  /** Faltas sobre os horários já encerrados (concluídos + faltas); null sem base. */
+  noShowShare: number | null;
+  topServices: Array<{ name: string; count: number }>;
   handoffs: { total: number; byCategory: Array<{ label: string; count: number }> };
   conversationsByHour: number[];
   receptionHours: { open: number; close: number } | null;
@@ -31,7 +36,7 @@ export function monthRange(month: string, timeZone: string): { from: Date; to: D
 
 const share = (part: number, total: number) => (total > 0 ? part / total : null);
 
-/** Use case: relatório mensal de uma academia, no fuso dela. */
+/** Use case: relatório mensal de um salão, no fuso dela. */
 export async function buildMonthlyReport(
   repo: ReportRepository,
   input: { tenantId: number; timeZone: string; month: string; now: Date; usdBrl: number | null },
@@ -68,11 +73,12 @@ export async function buildMonthlyReport(
     resolvedByAiShare: share(raw.conversationsWithoutHandoff, raw.conversations),
     funnel: [
       { key: 'conversations', label: 'Conversas atendidas', count: raw.conversations },
-      { key: 'interested', label: 'Contatos com interesse', count: raw.interestedLeads },
-      { key: 'trial', label: 'Aulas experimentais', count: raw.trialClasses },
-      { key: 'attended', label: 'Vieram à aula', count: raw.attended },
-      { key: 'enrolled', label: 'Matrículas', count: raw.enrollments },
+      { key: 'scheduled', label: 'Agendamentos', count: raw.appointments.scheduled },
+      { key: 'completed', label: 'Atendimentos concluídos', count: raw.appointments.completed },
     ],
+    appointments: raw.appointments,
+    noShowShare: share(raw.appointments.noShow, raw.appointments.completed + raw.appointments.noShow),
+    topServices: raw.topServices,
     handoffs: { total: byCategory.reduce((n, c) => n + c.count, 0), byCategory },
     conversationsByHour: raw.conversationsByHour,
     receptionHours: raw.receptionHours,

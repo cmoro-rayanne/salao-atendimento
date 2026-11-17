@@ -10,10 +10,9 @@ export interface MonthlyRawData {
   conversations: number;
   conversationsWithoutHandoff: number;
   handoffReasons: Array<{ reason: string; count: number }>;
-  interestedLeads: number;
-  trialClasses: number;
-  attended: number;
-  enrollments: number;
+  /** Agendamentos do mês pelo dia do horário marcado. */
+  appointments: { scheduled: number; completed: number; noShow: number; cancelled: number };
+  topServices: Array<{ name: string; count: number }>;
   /** 24 posições: conversas pela hora local em que começaram. */
   conversationsByHour: number[];
   aiCostUsd: number | null;
