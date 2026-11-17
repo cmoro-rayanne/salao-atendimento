@@ -77,20 +77,10 @@ describe('rotas: importar o documento e testar a IA', () => {
     const r = await app.inject({ method: 'POST', url: '/admin/api/knowledge/import/preview', headers: { cookie }, payload: { markdown: md } });
     expect(r.statusCode).toBe(200);
     const body = r.json();
-    expect(body.items).toHaveLength(5);
-    expect(body.receptionHours).toEqual({ open: 7, close: 21 });
-    expect(body.slotCount).toBeGreaterThan(0);
-    expect(body.warnings).toHaveLength(1);
+    expect(body.items).toHaveLength(4);
+    expect(body.receptionHours).toEqual({ open: 9, close: 19 });
+    expect(body.warnings).toHaveLength(0);
     expect(await kbVersion()).toBe(1);
-  });
-
-  it('cria os horários da experimental uma vez só', async () => {
-    const { app, cookie } = await fakeAdminForTests();
-    const post = () =>
-      app.inject({ method: 'POST', url: '/admin/api/knowledge/import/schedule', headers: { cookie }, payload: { markdown: md, weeks: 1 } });
-    const first = (await post()).json();
-    expect(first.created).toBe(15);
-    expect((await post()).json()).toEqual({ created: 0, skipped: 15 });
   });
 
   it('teste da IA: 503 sem chave, resposta com chave, 429 no limite', async () => {

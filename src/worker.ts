@@ -2,9 +2,8 @@ import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { ChatwootClient } from './adapters/chatwoot/chatwoot-client.js';
-import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY, DEFAULT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
+import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
-import { PgBookingRepository } from './adapters/db/booking-repository.js';
 import { createSql } from './adapters/db/client.js';
 import {
   PgAgentRunRepository,
@@ -20,7 +19,6 @@ import {
   BullAppointmentReminderScheduler,
   type AppointmentReminderJob,
 } from './adapters/queue/appointment-reminder-queue.js';
-import { BullReminderScheduler, REMINDER_QUEUE, type ReminderJob } from './adapters/queue/reminder-queue.js';
 import { BullConversationQueue, REPLY_QUEUE } from './adapters/queue/reply-queue.js';
 import { createAlerts } from './adapters/alerts/create-alerts.js';
 import { loadEnv, requireLlmKey } from './config/env.js';
@@ -33,7 +31,6 @@ import {
   type ReplyDeps,
 } from './modules/conversation/reply-to-conversation.js';
 import { sendAppointmentReminder } from './modules/appointments/send-reminder.js';
-import { sendTrialReminder } from './modules/trial-classes/send-reminder.js';
 
 const BUSY_RETRY_MS = 5_000;
 
@@ -44,16 +41,10 @@ const alerts = createAlerts(env, redis, log);
 const sql = createSql(env.DATABASE_URL);
 const queue = new BullConversationQueue(redis);
 const chatwoot = new ChatwootGateway(new ChatwootClient(env.CHATWOOT_BASE_URL, env.CHATWOOT_BOT_TOKEN), {
-  name: env.REMINDER_TEMPLATE_NAME,
-  language: env.REMINDER_TEMPLATE_LANG,
-  body: DEFAULT_REMINDER_BODY,
-}, {
   name: env.APPOINTMENT_REMINDER_TEMPLATE_NAME,
   language: env.REMINDER_TEMPLATE_LANG,
   body: DEFAULT_APPOINTMENT_REMINDER_BODY,
 });
-const bookings = new PgBookingRepository(sql);
-const reminders = new BullReminderScheduler(redis);
 const appointmentRepo = new PgAppointmentRepository(sql);
 const appointmentReminders = new BullAppointmentReminderScheduler(redis);
 const now = () => new Date();
@@ -118,26 +109,6 @@ worker.on('failed', (job: Job<ReplyJob> | undefined, err: Error) => {
   });
 });
 
-const reminderWorker = new Worker<ReminderJob>(
-  REMINDER_QUEUE,
-  async (job) => {
-    const outcome = await sendTrialReminder({ bookings, sender: chatwoot, now }, job.data.bookingId);
-    log.info({ jobId: job.id, bookingId: job.data.bookingId, outcome }, 'lembrete da experimental');
-  },
-  { connection: redis, concurrency: 2 },
-);
-
-reminderWorker.on('failed', (job, err) => {
-  const exhausted = job && job.attemptsMade >= (job.opts.attempts ?? 1);
-  log.error({ jobId: job?.id, err, dlq: exhausted }, exhausted ? 'lembrete foi para a DLQ' : 'lembrete falhou, vai tentar de novo');
-  if (exhausted && job) {
-    void alerts.notify({
-      key: `reminder-dlq:${job.data.bookingId}`,
-      text: `O lembrete da aula experimental (reserva ${job.data.bookingId}) não foi enviado: ${err.message}. Confira o template na Meta.`,
-    });
-  }
-});
-
 const appointmentReminderWorker = new Worker<AppointmentReminderJob>(
   APPOINTMENT_REMINDER_QUEUE,
   async (job) => {
@@ -167,9 +138,7 @@ void redis.set(WORKER_HEARTBEAT_KEY, String(Date.now()), 'EX', 300);
 async function shutdown(): Promise<void> {
   clearInterval(heartbeat);
   await worker.close();
-  await reminderWorker.close();
   await appointmentReminderWorker.close();
-  await reminders.close();
   await appointmentReminders.close();
   await queue.close();
   await redis.quit();

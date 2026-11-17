@@ -2,7 +2,7 @@
 
 Agente de atendimento com IA no WhatsApp com agenda para salões de beleza (modelo para oferecer; sem cliente real ainda).
 Cópia adaptada do `whatsapp-ai-agent` (academia, commit `b1d0d02`): aqui a IA agenda, remarca e cancela serviços em vez de aula experimental. Plano e entregas: `docs/specs/0013-agenda-salao.md`.
-O código de aula experimental (`trial-classes`) continua até a entrega 6 da spec 0013.
+O código de aula experimental foi removido (migration 011, destrutiva).
 Fluxo: WhatsApp Cloud API → Chatwoot → este serviço (Agent Bot) → LLM → resposta pelo Chatwoot.
 Arquitetura completa: `docs/arquitetura.md` (versão viva: https://claude.ai/artifact/R8fAJFNCCBQbzCDENvA9v3)
 

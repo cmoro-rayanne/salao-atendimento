@@ -17,14 +17,11 @@ import { agendaRoutes } from './agenda-routes.js';
 import { testAgentAnswer } from '../modules/agent/sandbox.js';
 import type { UnansweredQuestionRepository } from '../modules/handoff/ports.js';
 import { parseKnowledgeDoc } from '../modules/knowledge/import-doc.js';
-import { applyTrialSchedule, expandTrialRules } from '../modules/knowledge/import-knowledge.js';
 import type { KnowledgeAdminRepository } from '../modules/knowledge/ports.js';
 import type { TenantSettingsRepository } from '../modules/settings/ports.js';
 import { BRAZIL_TIME_ZONES, updateSettings } from '../modules/settings/update-settings.js';
 import { KNOWLEDGE_LIMITS, replaceKnowledge } from '../modules/knowledge/replace-knowledge.js';
-import { changeCapacity, createSlot } from '../modules/trial-classes/manage-slots.js';
-import type { BookingAdminRepository, TrialSlotRepository } from '../modules/trial-classes/ports.js';
-import { LEAD_STATUSES, type LeadAdminRepository } from '../modules/leads/ports.js';
+import type { ClientAdminRepository } from '../modules/clients/ports.js';
 import { buildMonthlyReport } from '../modules/reports/monthly-report.js';
 import type { ReportRepository } from '../modules/reports/ports.js';
 import { localParts } from '../shared/time-zone.js';
@@ -33,11 +30,10 @@ export const SESSION_COOKIE = 'painel_sid';
 
 export interface AdminDeps extends LoginDeps {
   knowledge: KnowledgeAdminRepository;
-  slots: TrialSlotRepository;
   catalog: CatalogRepository;
   agendaAdmin: AgendaAdminRepository;
   agenda: AgendaDeps;
-  leads: LeadAdminRepository;
+  clients: ClientAdminRepository;
   settings: TenantSettingsRepository;
   unanswered: UnansweredQuestionRepository;
   /** Sem chave do LLM na API, o teste da IA pelo painel fica indisponível (503). */
@@ -45,7 +41,6 @@ export interface AdminDeps extends LoginDeps {
   agentMaxSteps: number;
   /** Limite de testes da IA por pessoa. */
   testLimiter: LoginRateLimiter;
-  bookings: BookingAdminRepository;
   reports: ReportRepository;
   tenantInfo: (tenantId: number) => Promise<{ timeZone: string; chatwootAccountId: number }>;
   /** URL pública do Chatwoot, para o painel linkar conversas e contatos. */
@@ -75,23 +70,12 @@ const KnowledgeItems = z
   )
   .max(KNOWLEDGE_LIMITS.maxItems * 2);
 const KnowledgeBody = z.object({ expectedVersion: z.number().int().min(0), items: KnowledgeItems });
-const ImportBody = z.object({ markdown: z.string().min(1).max(200_000), weeks: z.number().int().min(1).max(12).default(4) });
+const ImportBody = z.object({ markdown: z.string().min(1).max(200_000) });
 const TestBody = z.object({ question: z.string().trim().min(2).max(500), items: KnowledgeItems });
 
-const SlotBody = z.object({
-  modality: z.string().max(80),
-  startsAt: z.iso.datetime({ offset: true }),
-  capacity: z.number().int(),
-});
-const CapacityBody = z.object({ capacity: z.number().int() });
 const IdParams = z.object({ id: z.coerce.number().int().positive() });
 const RangeQuery = z.object({ from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) });
-const LeadsQuery = RangeQuery.extend({
-  status: z.enum(LEAD_STATUSES).optional(),
-  q: z.string().max(100).optional(),
-});
-const LeadStatusBody = z.object({ status: z.enum(LEAD_STATUSES), expectedVersion: z.number().int().min(1) });
-const AttendanceBody = z.object({ attendance: z.enum(['compareceu', 'faltou', 'agendada']) });
+const ClientsQuery = z.object({ q: z.string().max(100).optional() });
 const PasswordBody = z.object({ current: z.string().max(200), next: z.string().max(200) });
 const SettingsBody = z.object({
   name: z.string().max(200),
@@ -269,32 +253,13 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
       const body = ImportBody.safeParse(req.body);
       if (!body.success) return badRequest(reply, 'Envie o arquivo .md exportado do documento.');
       const doc = parseKnowledgeDoc(body.data.markdown);
-      const { timeZone } = await deps.tenantInfo(req.adminSession!.tenantId);
-      const slots = expandTrialRules(doc.trialRules, deps.now?.() ?? new Date(), body.data.weeks, timeZone);
       return {
         items: doc.items,
         pending: doc.pending,
         warnings: doc.warnings,
         receptionHours: doc.receptionHours,
-        trialRules: doc.trialRules,
-        slotCount: slots.length,
         evalCaseCount: doc.evalCases.length,
       };
-    });
-
-    auth.post('/knowledge/import/schedule', async (req, reply) => {
-      const body = ImportBody.safeParse(req.body);
-      if (!body.success) return badRequest(reply, 'Envie o arquivo .md exportado do documento.');
-      const { tenantId } = req.adminSession!;
-      const doc = parseKnowledgeDoc(body.data.markdown);
-      if (doc.trialRules.length === 0) return badRequest(reply, 'O documento não tem horários da experimental que deem para ler.');
-      const { timeZone } = await deps.tenantInfo(tenantId);
-      const result = await applyTrialSchedule(deps.slots, tenantId, doc.trialRules, timeZone, {
-        weeks: body.data.weeks,
-        now: deps.now?.() ?? new Date(),
-      });
-      req.log.info({ tenantId, ...result }, 'grade da experimental importada');
-      return result;
     });
 
     auth.post('/knowledge/test', async (req, reply) => {
@@ -350,83 +315,11 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
       return result;
     });
 
-    auth.get('/trial-slots', async (req, reply) => {
-      const q = RangeQuery.safeParse(req.query);
-      if (!q.success) return badRequest(reply, 'Informe o período (from, to).');
-      const slots = await deps.slots.list(req.adminSession!.tenantId, new Date(q.data.from), new Date(q.data.to));
-      return { slots };
-    });
-
-    auth.post('/trial-slots', async (req, reply) => {
-      const body = SlotBody.safeParse(req.body);
-      if (!body.success) return badRequest(reply, 'Dados do horário inválidos.');
-      const result = await createSlot(deps.slots, req.adminSession!.tenantId, {
-        modality: body.data.modality,
-        startsAt: new Date(body.data.startsAt),
-        capacity: body.data.capacity,
-      });
-      if (!result.ok) return badRequest(reply, result.error);
-      return reply.code(201).send(result.slot);
-    });
-
-    auth.patch('/trial-slots/:id', async (req, reply) => {
-      const params = IdParams.safeParse(req.params);
-      const body = CapacityBody.safeParse(req.body);
-      if (!params.success || !body.success) return badRequest(reply, 'Dados inválidos.');
-      const result = await changeCapacity(deps.slots, req.adminSession!.tenantId, params.data.id, body.data.capacity);
-      if (result === 'invalid') return badRequest(reply, 'Quantidade de vagas inválida.');
-      if (result === 'not_found') return reply.code(404).send({ error: 'Horário não encontrado.' });
-      if (result === 'below_booked') {
-        return reply.code(409).send({ error: 'Já há mais reservas do que essa quantidade de vagas.' });
-      }
-      return { ok: true };
-    });
-
-    auth.get('/leads', async (req, reply) => {
-      const q = LeadsQuery.safeParse(req.query);
+    auth.get('/clients', async (req, reply) => {
+      const q = ClientsQuery.safeParse(req.query);
       if (!q.success) return badRequest(reply, 'Filtro inválido.');
-      return deps.leads.list(req.adminSession!.tenantId, {
-        status: q.data.status,
-        search: q.data.q,
-        from: new Date(q.data.from),
-        to: new Date(q.data.to),
-        limit: 100,
-      });
-    });
-
-    auth.patch('/leads/:id', async (req, reply) => {
-      const params = IdParams.safeParse(req.params);
-      const body = LeadStatusBody.safeParse(req.body);
-      if (!params.success || !body.success) return badRequest(reply, 'Dados inválidos.');
-      const { tenantId, userId } = req.adminSession!;
-      const result = await deps.leads.updateStatus(tenantId, params.data.id, body.data.status, body.data.expectedVersion);
-      if (result.kind === 'not_found') return reply.code(404).send({ error: 'Lead não encontrado.' });
-      if (result.kind === 'conflict') {
-        return reply.code(409).send({
-          error: 'Esse lead mudou enquanto você olhava (a IA ou outra pessoa atualizou). Recarregue a lista.',
-          currentVersion: result.currentVersion,
-        });
-      }
-      req.log.info({ tenantId, userId, leadId: params.data.id, status: body.data.status }, 'situação do lead alterada');
-      return { ok: true, version: result.version };
-    });
-
-    auth.get('/bookings', async (req, reply) => {
-      const q = RangeQuery.safeParse(req.query);
-      if (!q.success) return badRequest(reply, 'Informe o período (from, to).');
-      const bookings = await deps.bookings.list(req.adminSession!.tenantId, new Date(q.data.from), new Date(q.data.to));
-      return { bookings };
-    });
-
-    auth.patch('/bookings/:id', async (req, reply) => {
-      const params = IdParams.safeParse(req.params);
-      const body = AttendanceBody.safeParse(req.body);
-      if (!params.success || !body.success) return badRequest(reply, 'Dados inválidos.');
       const now = deps.now?.() ?? new Date();
-      const result = await deps.bookings.markAttendance(req.adminSession!.tenantId, params.data.id, body.data.attendance, now);
-      if (result === 'not_found') return reply.code(404).send({ error: 'Aula não encontrada.' });
-      if (result === 'not_started') return reply.code(409).send({ error: 'Só dá para marcar presença depois que a aula começa.' });
-      return { ok: true };
+      return { clients: await deps.clients.list(req.adminSession!.tenantId, { search: q.data.q, now, limit: 200 }) };
     });
 
     auth.get('/report', async (req, reply) => {
@@ -464,17 +357,6 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
         deps.now?.() ?? new Date(),
       );
       if (!ok) return reply.code(404).send({ error: 'Pergunta não encontrada.' });
-      return { ok: true };
-    });
-
-    auth.delete('/trial-slots/:id', async (req, reply) => {
-      const params = IdParams.safeParse(req.params);
-      if (!params.success) return badRequest(reply, 'Horário inválido.');
-      const result = await deps.slots.delete(req.adminSession!.tenantId, params.data.id);
-      if (result === 'not_found') return reply.code(404).send({ error: 'Horário não encontrado.' });
-      if (result === 'has_bookings') {
-        return reply.code(409).send({ error: 'Esse horário tem reservas; reduza as vagas em vez de excluir.' });
-      }
       return { ok: true };
     });
   });

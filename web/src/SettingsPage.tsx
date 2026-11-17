@@ -61,12 +61,12 @@ function AcademySettings() {
   return (
     <section className="panel">
       <div className="page-head">
-        <h1>A academia</h1>
+        <h1>O salão</h1>
         <p className="hint">O nome aparece nas mensagens da IA. O horário da recepção entra no relatório e define quando a IA avisa que a equipe responde depois.</p>
       </div>
       <form className="settings-form" onSubmit={save}>
         <label>
-          Nome da academia
+          Nome do salão
           <input required minLength={2} maxLength={80} value={form.name} onChange={(e) => set({ name: e.target.value })} />
         </label>
         <label>
@@ -199,7 +199,7 @@ function Team() {
     <section className="panel">
       <div className="page-head">
         <h2 className="section-title">Equipe com acesso ao painel</h2>
-        <p className="hint">Recepção vê leads, aulas, grade, base e relatório. Só o dono mexe nestas configurações e na equipe.</p>
+        <p className="hint">A recepção usa a agenda, os clientes, a base e o relatório. Só o dono mexe nestas configurações, nos serviços, nas profissionais e na equipe.</p>
       </div>
 
       {secret && (

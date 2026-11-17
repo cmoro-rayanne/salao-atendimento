@@ -1,13 +1,13 @@
-# whatsapp-ai-agent
+# salao-atendimento
 
-Atendimento com IA no WhatsApp para academias — **RMoro Desenvolvimento**.
+Atendimento com IA no WhatsApp e agenda para salões de beleza — **RMoro Desenvolvimento**.
 
-A IA tira dúvidas, registra leads, agenda aula experimental e passa para a equipe o que precisa de gente. A equipe atende pelo Chatwoot, no mesmo número oficial.
+A IA tira dúvidas, agenda, remarca e cancela serviços, avisa o cliente na véspera e passa para a equipe o que precisa de gente. A equipe atende pelo Chatwoot, no mesmo número oficial.
 
 ```
 Cliente ⇄ WhatsApp Cloud API (Meta) ⇄ Chatwoot ⇄ agent-api / agent-worker ⇄ LLM
                                          ⇅                 ⇅
-                                  Equipe da academia   Postgres · Redis (BullMQ)
+                                  Equipe do salão   Postgres · Redis (BullMQ)
 ```
 
 Arquitetura completa em [`docs/arquitetura.md`](docs/arquitetura.md); specs em [`docs/specs/`](docs/specs).
@@ -31,12 +31,12 @@ No Chatwoot, crie um **Agent Bot** com a URL `http://<host-do-agente>:3000/webho
 
 Guia completo, da VPS vazia à primeira mensagem respondida: [`deploy/README.md`](deploy/README.md). Resumo: o CI publica a imagem no GitHub Container Registry a cada merge no `dev`; na VPS, `deploy/deploy.sh <tag>` atualiza e volta sozinho se a versão nova não ficar saudável. Backup diário dos bancos já vem no compose.
 
-## Cadastrar uma academia
+## Cadastrar um salão
 
-O agente só responde contas do Chatwoot cadastradas como academia (tenant). Exemplo:
+O agente só responde contas do Chatwoot cadastradas como salão (tenant). Exemplo:
 
 ```sql
-insert into tenants (name, chatwoot_account_id) values ('Cia da Forma', 1);
+insert into tenants (name, chatwoot_account_id) values ('Studio Aurora', 1);
 insert into knowledge_items (tenant_id, category, content) values
   (1, 'Planos', 'Mensal: R$ ...'),
   (1, 'Horários', 'Segunda a sexta ...');
@@ -44,10 +44,10 @@ insert into knowledge_items (tenant_id, category, content) values
 update tenants set knowledge_version = knowledge_version + 1 where id = 1;
 ```
 
-Depois, crie o acesso da academia ao painel, onde ela edita a base e a grade sem SQL:
+Depois, crie o acesso do salão ao painel, onde ele edita a base, os serviços, os profissionais e a agenda sem SQL:
 
 ```bash
-ADMIN_PASSWORD='uma-senha-forte' npm run admin:create -- --tenant 1 --email recepcao@academia.com.br --role recepcao
+ADMIN_PASSWORD='uma-senha-forte' npm run admin:create -- --tenant 1 --email recepcao@salao.com.br --role recepcao
 # em produção, dentro do container: node dist/scripts/create-admin.js ...
 ```
 
@@ -63,19 +63,18 @@ TEST_DATABASE_URL=... TEST_REDIS_URL=... npm test   # + integração com Postgre
 LLM_API_KEY=... npm run eval               # avaliação do prompt contra o LLM (eval/casos.json)
 ```
 
-`eval/base-exemplo.json` é uma base fictícia; troque pelos dados reais da academia e complete `eval/casos.json` com perguntas reais.
+`eval/base-exemplo.json` é uma base fictícia; troque pelos dados reais do salão e complete `eval/casos.json` com perguntas reais.
 
 ## Estado atual
 
-- Fase 1 (fundação): webhook validado e idempotente, agrupamento de mensagens pela fila.
-- Fase 2 (agente): IA da Anthropic com cache de prompt, base de conhecimento por academia, `registrar_lead`, `transferir_para_humano`, lock por conversa, registro de cada execução em `agent_runs` e transferência automática quando algo falha.
+Spec 0013 (`docs/specs/0013-agenda-salao.md`):
 
-- Painel (spec 0004): login, edição da base de conhecimento com controle de versão e grade da aula experimental.
+- Agenda: serviços, profissionais, horários de atendimento e folgas; os horários livres são calculados e um EXCLUDE no Postgres impede sobreposição.
+- IA: consulta horários, agenda, remarca e cancela pelo WhatsApp; transfere para a equipe o que foge disso.
+- Lembrete: na véspera às 18h (horário do salão) ou 3 horas antes, por template do WhatsApp. Agendamentos criados só no painel não têm conversa e, por isso, não recebem lembrete.
+- Painel: agenda do dia, serviços e profissionais (só o dono edita), clientes, base de conhecimento e relatório mensal.
+- Herdado da academia: LGPD (SAIR/VOLTAR, aviso de atendimento automatizado), limite de mensagens, alertas por webhook, deploy e importação do documento da base.
 
-- Agendamento (spec 0003): a IA lista horários livres, agenda e cancela a aula experimental, com lembrete na véspera por template do WhatsApp.
+Antes do go-live: aprovar o template `lembrete_agendamento` no WhatsApp Manager (`{{1}}` nome, `{{2}}` serviço, `{{3}}` profissional, `{{4}}` data e hora).
 
-- Painel completo (spec 0005): leads com funil e situação, aulas agendadas com presença, relatório mensal com PDF.
-
-- LGPD e proteção (spec 0006): SAIR/VOLTAR para lembretes, aviso de atendimento automatizado com link de privacidade (`tenants.privacy_url`), limite de mensagens por conversa e alertas de falha por webhook (`ALERT_WEBHOOK_URL`).
-
-Antes do go-live: criar e aprovar o template `lembrete_aula_experimental` no WhatsApp Manager (texto em `docs/specs/0003-agendamento-experimental.md`).
+A migration `011_limpeza_academia.sql` apaga `trial_bookings`, `trial_slots` e as colunas de lead da academia (`goal`, `modality`, `status`, `enrolled_at`). É destrutiva: não rode em banco com dados da academia sem backup.

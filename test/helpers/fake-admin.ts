@@ -5,21 +5,20 @@ import { SESSION_COOKIE, type AdminDeps } from '../../src/http/admin-routes.js';
 import { buildServer } from '../../src/http/server.js';
 import type { AdminSession, AdminUser } from '../../src/modules/auth/ports.js';
 import type { EditableKnowledgeItem } from '../../src/modules/knowledge/ports.js';
-import type { LeadListItem, LeadStatus } from '../../src/modules/leads/ports.js';
+import type { ClientListItem } from '../../src/modules/clients/ports.js';
 import type { MonthlyRawData, ReportRange } from '../../src/modules/reports/ports.js';
-import type { PanelBooking, TrialSlot } from '../../src/modules/trial-classes/ports.js';
 
 const hasher = new ScryptPasswordHasher();
 
-/** Painel com repositórios em memória, separados por academia (tenant). */
+/** Painel com repositórios em memória, separados por salão (tenant). */
 export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
   const users: AdminUser[] = [
-    { id: 1, tenantId: 1, email: 'dono@ciadaforma.com.br', passwordHash: await hasher.hash('senha-forte-123'), role: 'dono', mustChangePassword: false },
+    { id: 1, tenantId: 1, email: 'dono@aurora.com.br', passwordHash: await hasher.hash('senha-forte-123'), role: 'dono', mustChangePassword: false },
     { id: 2, tenantId: 2, email: 'dono@outra.com.br', passwordHash: await hasher.hash('outra-senha-123'), role: 'dono', mustChangePassword: false },
-    { id: 3, tenantId: 1, email: 'recepcao@ciadaforma.com.br', passwordHash: await hasher.hash('recepcao-123456'), role: 'recepcao', mustChangePassword: false },
+    { id: 3, tenantId: 1, email: 'recepcao@aurora.com.br', passwordHash: await hasher.hash('recepcao-123456'), role: 'recepcao', mustChangePassword: false },
   ];
   const sessions = new Map<string, AdminSession>();
-  let settings = { name: 'Cia da Forma', timeZone: 'America/Sao_Paulo', receptionHours: null as { open: number; close: number } | null, privacyUrl: null as string | null };
+  let settings = { name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', receptionHours: null as { open: number; close: number } | null, privacyUrl: null as string | null };
   const attempts = new Map<string, number>();
   const versions: Array<{
     tenantId: number;
@@ -32,18 +31,13 @@ export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
   }> = [];
   const kb = new Map<number, { version: number; items: EditableKnowledgeItem[] }>([
     [1, { version: 1, items: [{ id: 1, category: 'Planos', content: 'Mensal R$ 120', active: true }] }],
-    [2, { version: 1, items: [{ id: 2, category: 'Segredo', content: 'da outra academia', active: true }] }],
+    [2, { version: 1, items: [{ id: 2, category: 'Segredo', content: 'do outro salão', active: true }] }],
   ]);
-  const slots = new Map<number, TrialSlot & { tenantId: number }>();
   let nextId = 100;
   const NOW = new Date('2026-11-16T15:00:00Z');
-  const leads: Array<LeadListItem & { tenantId: number }> = [
-    { tenantId: 1, id: 1, name: 'Carla', phone: '+5541999990001', goal: 'emagrecer', modality: 'Funcional', status: 'qualificado', version: 3, chatwootContactId: 5, createdAt: NOW, updatedAt: NOW },
-    { tenantId: 2, id: 2, name: 'De outra academia', phone: '+5541999990002', goal: null, modality: null, status: 'novo', version: 1, chatwootContactId: 6, createdAt: NOW, updatedAt: NOW },
-  ];
-  const bookings: Array<PanelBooking & { tenantId: number }> = [
-    { tenantId: 1, id: 7, status: 'agendada', startsAt: new Date('2026-11-16T10:00:00Z'), modality: 'Pilates', leadId: 1, leadName: 'Carla', leadPhone: '+55', leadGoal: null, reminderSentAt: null, reminderScheduled: false, chatwootConversationId: 77 },
-    { tenantId: 1, id: 8, status: 'agendada', startsAt: new Date('2026-11-18T10:00:00Z'), modality: 'Pilates', leadId: 1, leadName: 'Carla', leadPhone: '+55', leadGoal: null, reminderSentAt: null, reminderScheduled: true, chatwootConversationId: 77 },
+  const clients: Array<ClientListItem & { tenantId: number }> = [
+    { tenantId: 1, id: 1, name: 'Carla', phone: '+5541999990001', chatwootContactId: 5, nextAppointment: null, completed: 2, noShows: 1, optedOut: false, updatedAt: NOW },
+    { tenantId: 2, id: 2, name: 'De outro salão', phone: '+5541999990002', chatwootContactId: 6, nextAppointment: null, completed: 0, noShows: 0, optedOut: false, updatedAt: NOW },
   ];
   const reportCalls: ReportRange[] = [];
   const questions = [
@@ -148,31 +142,11 @@ export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
     usdBrl: 5,
     tenantInfo: async () => ({ timeZone: 'America/Sao_Paulo', chatwootAccountId: 3 }),
     chatwootPublicUrl: 'https://chat.exemplo.com.br/',
-    leads: {
-      list: async (tenantId, q) => {
-        const mine = leads.filter((l) => l.tenantId === tenantId);
-        const counts = { novo: 0, qualificado: 0, experimental_agendada: 0, matriculado: 0, perdido: 0 } as Record<LeadStatus, number>;
-        for (const l of mine) counts[l.status]++;
-        return { items: mine.filter((l) => !q.status || l.status === q.status), counts };
-      },
-      updateStatus: async (tenantId, id, status, expected) => {
-        const l = leads.find((x) => x.id === id && x.tenantId === tenantId);
-        if (!l) return { kind: 'not_found' };
-        if (l.version !== expected) return { kind: 'conflict', currentVersion: l.version };
-        l.status = status;
-        l.version++;
-        return { kind: 'ok', version: l.version };
-      },
-    },
-    bookings: {
-      list: async (tenantId) => bookings.filter((b) => b.tenantId === tenantId),
-      markAttendance: async (tenantId, id, status, now) => {
-        const b = bookings.find((x) => x.id === id && x.tenantId === tenantId);
-        if (!b) return 'not_found';
-        if (b.startsAt > now) return 'not_started';
-        b.status = status;
-        return 'ok';
-      },
+    clients: {
+      list: async (tenantId, q) =>
+        clients
+          .filter((c) => c.tenantId === tenantId && (!q.search || (c.name ?? '').toLowerCase().includes(q.search.toLowerCase())))
+          .map((c) => ({ id: c.id, name: c.name, phone: c.phone, chatwootContactId: c.chatwootContactId, nextAppointment: c.nextAppointment, completed: c.completed, noShows: c.noShows, optedOut: c.optedOut, updatedAt: c.updatedAt })),
     },
     reports: {
       monthlyRaw: async (range): Promise<MonthlyRawData> => {
@@ -191,28 +165,6 @@ export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
     // Rotas de agenda são exercitadas contra o Postgres em test/integration/painel-salao.test.ts.
     agendaAdmin: {} as AgendaAdminRepository,
     agenda: { catalog: agendaMemory, appointments: agendaMemory, reminders: { schedule: async () => 'x', cancel: async () => {} }, now: () => NOW },
-    slots: {
-      list: async (tenantId) => [...slots.values()].filter((s) => s.tenantId === tenantId),
-      create: async (tenantId, s) => {
-        const slot = { ...s, id: nextId++, booked: 0, tenantId };
-        slots.set(slot.id, slot);
-        return slot;
-      },
-      updateCapacity: async (tenantId, id, capacity) => {
-        const s = slots.get(id);
-        if (!s || s.tenantId !== tenantId) return 'not_found';
-        if (s.booked > capacity) return 'below_booked';
-        s.capacity = capacity;
-        return 'ok';
-      },
-      delete: async (tenantId, id) => {
-        const s = slots.get(id);
-        if (!s || s.tenantId !== tenantId) return 'not_found';
-        if (s.booked > 0) return 'has_bookings';
-        slots.delete(id);
-        return 'ok';
-      },
-    },
     ...overrides,
   };
 
@@ -231,12 +183,12 @@ export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
     return { res, cookie: cookie ? `${SESSION_COOKIE}=${cookie.value}` : '' };
   }
 
-  return { app, deps, kb, slots, leads, bookings, reportCalls, loginAs, users, sessions, getSettings: () => settings };
+  return { app, deps, kb, clients, reportCalls, loginAs, users, sessions, getSettings: () => settings };
 }
 
-/** Atalho: painel falso já logado como dono da academia 1. */
+/** Atalho: painel falso já logado como dono do salão 1. */
 export async function fakeAdminForTests() {
   const admin = await fakeAdmin();
-  const { cookie } = await admin.loginAs('dono@ciadaforma.com.br', 'senha-forte-123');
+  const { cookie } = await admin.loginAs('dono@aurora.com.br', 'senha-forte-123');
   return { ...admin, cookie, kbVersion: async () => admin.kb.get(1)!.version };
 }

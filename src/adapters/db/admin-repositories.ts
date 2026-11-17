@@ -9,7 +9,6 @@ import type {
   KnowledgeVersionSummary,
   ReplaceKnowledgeResult,
 } from '../../modules/knowledge/ports.js';
-import type { NewTrialSlot, TrialSlot, TrialSlotRepository } from '../../modules/trial-classes/ports.js';
 import type { Sql } from './client.js';
 
 interface AdminUserRow {
@@ -189,67 +188,6 @@ function summarize(r: VersionRow) {
     items,
     summary: { version: r.version, author: r.author, createdAt: r.created_at, itemCount: items.length, activeChars },
   };
-}
-
-interface SlotRow {
-  id: string;
-  modality: string;
-  starts_at: Date;
-  capacity: number;
-  booked: number;
-}
-
-const toSlot = (r: SlotRow): TrialSlot => ({
-  id: Number(r.id),
-  modality: r.modality,
-  startsAt: r.starts_at,
-  capacity: r.capacity,
-  booked: r.booked,
-});
-
-export class PgTrialSlotRepository implements TrialSlotRepository {
-  constructor(private readonly sql: Sql) {}
-
-  async list(tenantId: number, from: Date, to: Date): Promise<TrialSlot[]> {
-    const rows = await this.sql<SlotRow[]>`
-      select id, modality, starts_at, capacity, booked from trial_slots
-      where tenant_id = ${tenantId} and starts_at >= ${from} and starts_at < ${to}
-      order by starts_at, modality
-    `;
-    return rows.map(toSlot);
-  }
-
-  async create(tenantId: number, slot: NewTrialSlot): Promise<TrialSlot> {
-    const [row] = await this.sql<SlotRow[]>`
-      insert into trial_slots (tenant_id, modality, starts_at, capacity)
-      values (${tenantId}, ${slot.modality}, ${slot.startsAt}, ${slot.capacity})
-      returning id, modality, starts_at, capacity, booked
-    `;
-    return toSlot(row!);
-  }
-
-  async updateCapacity(tenantId: number, id: number, capacity: number): Promise<'ok' | 'not_found' | 'below_booked'> {
-    const updated = await this.sql`
-      update trial_slots set capacity = ${capacity}
-      where id = ${id} and tenant_id = ${tenantId} and booked <= ${capacity}
-      returning id
-    `;
-    if (updated.length) return 'ok';
-    const exists = await this.sql`select 1 from trial_slots where id = ${id} and tenant_id = ${tenantId}`;
-    return exists.length ? 'below_booked' : 'not_found';
-  }
-
-  async delete(tenantId: number, id: number): Promise<'ok' | 'not_found' | 'has_bookings'> {
-    const deleted = await this.sql`
-      delete from trial_slots s
-      where s.id = ${id} and s.tenant_id = ${tenantId}
-        and not exists (select 1 from trial_bookings b where b.slot_id = s.id)
-      returning s.id
-    `;
-    if (deleted.length) return 'ok';
-    const exists = await this.sql`select 1 from trial_slots where id = ${id} and tenant_id = ${tenantId}`;
-    return exists.length ? 'has_bookings' : 'not_found';
-  }
 }
 
 export class PgTenantSettingsRepository implements TenantSettingsRepository {

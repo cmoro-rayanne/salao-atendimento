@@ -1,3 +1,5 @@
+> **Atenção:** este documento foi escrito para a academia (Cia da Forma). No salão, `trial-classes` virou `appointments` e `trial_slots`/`trial_bookings` viraram serviços, profissionais e agendamentos; o que mudou está em `docs/specs/0013-agenda-salao.md`.
+
 # Arquitetura — Atendimento com IA no WhatsApp
 
 Versão viva (com diagrama e comentários): https://claude.ai/artifact/R8fAJFNCCBQbzCDENvA9v3 · 13/11/2026 · Rayanne Carvalho Moro

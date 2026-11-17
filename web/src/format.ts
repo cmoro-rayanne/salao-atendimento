@@ -1,4 +1,4 @@
-/** Formatação compartilhada pelas telas, sempre no fuso da academia. */
+/** Formatação compartilhada pelas telas, sempre no fuso do salão. */
 
 export function fmt(date: Date | string, timeZone: string | undefined, opts: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat('pt-BR', { timeZone, ...opts }).format(new Date(date));

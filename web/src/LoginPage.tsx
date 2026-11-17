@@ -26,7 +26,7 @@ export function LoginPage({ onLogin }: { onLogin: (me: Me) => void }) {
     <main className="login">
       <form onSubmit={submit} className="login-form">
         <h1>Painel do atendimento</h1>
-        <p className="hint">Entre para editar o que a IA responde e os horários da aula experimental.</p>
+        <p className="hint">Entre para ver a agenda e editar o que a IA responde.</p>
         <label>
           E-mail
           <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />

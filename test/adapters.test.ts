@@ -106,7 +106,7 @@ describe('AnthropicLlmClient', () => {
 describe('buildSystemPrompt', () => {
   it('mantém a parte cacheável estável e põe a hora local na parte do turno', () => {
     const input = {
-      salonName: 'Cia da Forma',
+      salonName: 'Studio Aurora',
       knowledge: { version: 2, items: [{ category: 'Horários', content: 'Seg a sex, 6h às 22h' }] },
       timeZone: 'America/Sao_Paulo',
       isFirstReply: false,

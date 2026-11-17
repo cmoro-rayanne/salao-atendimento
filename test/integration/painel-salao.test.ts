@@ -60,8 +60,8 @@ describe.skipIf(!dbUrl)('painel do salão (rotas + Postgres)', () => {
       },
     });
     app = admin.app;
-    cookie = (await admin.loginAs('dono@ciadaforma.com.br', 'senha-forte-123')).cookie;
-    recepcao = (await admin.loginAs('recepcao@ciadaforma.com.br', 'recepcao-123456')).cookie;
+    cookie = (await admin.loginAs('dono@aurora.com.br', 'senha-forte-123')).cookie;
+    recepcao = (await admin.loginAs('recepcao@aurora.com.br', 'recepcao-123456')).cookie;
     outro = (await admin.loginAs('dono@outra.com.br', 'outra-senha-123')).cookie;
   });
 

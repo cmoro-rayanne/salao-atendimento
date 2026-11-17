@@ -4,19 +4,6 @@
  */
 import type { KnowledgeItem } from './ports.js';
 
-export interface ClockTime {
-  hour: number;
-  minute: number;
-}
-
-/** Horários semanais de aula experimental de uma modalidade. `weekdays`: 0 = domingo … 6 = sábado. */
-export interface WeeklyTrialRule {
-  modality: string;
-  weekdays: number[];
-  times: ClockTime[];
-  capacity: number;
-}
-
 export interface EvalCase {
   pergunta: string;
   espera: {
@@ -30,13 +17,12 @@ export interface EvalCase {
 }
 
 export interface ParsedKnowledgeDoc {
-  /** Do título "Base de conhecimento da IA — <academia>", se houver. */
-  academyName: string | null;
+  /** Do título "Base de conhecimento da IA — <salão>", se houver. */
+  salonName: string | null;
   items: KnowledgeItem[];
-  /** Campos ainda com `[preencher]`, como "A academia › Endereço". */
+  /** Campos ainda com `[preencher]`, como "O salão › Endereço". */
   pending: string[];
   receptionHours: { open: number; close: number } | null;
-  trialRules: WeeklyTrialRule[];
   warnings: string[];
   evalCases: EvalCase[];
 }
@@ -61,11 +47,10 @@ interface Section {
 export function parseKnowledgeDoc(markdown: string): ParsedKnowledgeDoc {
   const title = /^#\s+.*?[—–-]\s*(.+)$/m.exec(markdown);
   const out: ParsedKnowledgeDoc = {
-    academyName: title ? clean(title[1] ?? '') || null : null,
+    salonName: title ? clean(title[1] ?? '') || null : null,
     items: [],
     pending: [],
     receptionHours: null,
-    trialRules: [],
     warnings: [],
     evalCases: [],
   };
@@ -86,10 +71,6 @@ export function parseKnowledgeDoc(markdown: string): ParsedKnowledgeDoc {
         continue;
       }
       const { table } = block;
-      if (isTrialTable(table)) {
-        parseTrialTable(table, out);
-        continue;
-      }
       lines.push(...tableLines(section.title, table, out.pending));
       if (normalize(table.header[0] ?? '') === 'assunto') findReceptionHours(table, out);
     }
@@ -238,78 +219,6 @@ function findReceptionHours(table: Table, out: ParsedKnowledgeDoc): void {
     return;
   }
   out.receptionHours = { open, close };
-}
-
-// ---------- Grade da aula experimental ----------
-
-function isTrialTable(table: Table): boolean {
-  return table.header.some((h) => normalize(h).includes('vagas'));
-}
-
-function parseTrialTable(table: Table, out: ParsedKnowledgeDoc): void {
-  for (const row of table.rows) {
-    if (row.every((c) => !filled(c))) continue;
-    const [modality = '', schedule = '', vagas = ''] = row.map(filled);
-    if (!modality || !schedule || !vagas) {
-      out.pending.push(`Aula experimental › grade ${modality || 'linha sem modalidade'}`);
-      continue;
-    }
-    const capacity = Number(/\d+/.exec(vagas)?.[0]);
-    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100) {
-      out.warnings.push(`Grade da experimental, ${modality}: vagas "${vagas}" não é um número entre 1 e 100.`);
-      continue;
-    }
-    const parsed = parseWeeklySchedule(schedule);
-    if ('error' in parsed) {
-      out.warnings.push(`Grade da experimental, ${modality}: ${parsed.error} Cadastre esses horários no painel.`);
-      continue;
-    }
-    for (const group of parsed.groups) out.trialRules.push({ modality, capacity, ...group });
-  }
-}
-
-const DAY_STEMS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'] as const;
-const DAY_TOKEN = /\b(dom|seg|ter|qua|qui|sex|sab)[a-z]*(?:-feira)?\b/g;
-const DAY_RANGE = /\b(dom|seg|ter|qua|qui|sex|sab)[a-z]*(?:-feira)?\s*(?:a|ate|-|–)\s*(dom|seg|ter|qua|qui|sex|sab)[a-z]*(?:-feira)?\b/;
-const TIME = /\b(\d{1,2})(?:\s*h\s*(\d{2})?|:(\d{2}))/g;
-
-/** "seg/qua/sex 7h e 19h; sáb 9h" → grupos de dias e horários. Nunca chuta: o que não entende vira erro. */
-export function parseWeeklySchedule(
-  text: string,
-): { groups: Array<{ weekdays: number[]; times: ClockTime[] }> } | { error: string } {
-  const groups: Array<{ weekdays: number[]; times: ClockTime[] }> = [];
-  for (const part of text.split(';')) {
-    const g = normalize(part);
-    if (!g) continue;
-    const days = new Set<number>();
-    let rest = g;
-    if (/\b(todos os dias|todo dia|diariamente)\b/.test(g)) [0, 1, 2, 3, 4, 5, 6].forEach((d) => days.add(d));
-    if (/\bdias uteis\b/.test(g)) [1, 2, 3, 4, 5].forEach((d) => days.add(d));
-    const range = DAY_RANGE.exec(g);
-    if (range) {
-      const from = DAY_STEMS.indexOf(range[1] as (typeof DAY_STEMS)[number]);
-      const to = DAY_STEMS.indexOf(range[2] as (typeof DAY_STEMS)[number]);
-      for (let d = from; ; d = (d + 1) % 7) {
-        days.add(d);
-        if (d === to) break;
-      }
-      rest = g.replace(range[0], ' ');
-    }
-    for (const m of rest.matchAll(DAY_TOKEN)) days.add(DAY_STEMS.indexOf(m[1] as (typeof DAY_STEMS)[number]));
-
-    const times: ClockTime[] = [];
-    for (const m of g.matchAll(TIME)) {
-      const hour = Number(m[1]);
-      const minute = Number(m[2] ?? m[3] ?? 0);
-      if (hour > 23 || minute > 59) return { error: `horário "${m[0]}" inválido.` };
-      if (!times.some((t) => t.hour === hour && t.minute === minute)) times.push({ hour, minute });
-    }
-    if (days.size === 0 || times.length === 0) {
-      return { error: `não deu para ler "${part.trim()}" (use, por exemplo, "seg/qua/sex 7h e 19h").` };
-    }
-    groups.push({ weekdays: [...days].sort((a, b) => a - b), times });
-  }
-  return groups.length ? { groups } : { error: 'sem dias e horários.' };
 }
 
 // ---------- Casos de avaliação ----------

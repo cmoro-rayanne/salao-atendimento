@@ -4,7 +4,6 @@ import {
   PgAdminUserRepository,
   PgKnowledgeAdminRepository,
   PgTenantSettingsRepository,
-  PgTrialSlotRepository,
 } from '../../src/adapters/db/admin-repositories.js';
 import { createSql, type Sql } from '../../src/adapters/db/client.js';
 import { PgKnowledgeRepository } from '../../src/adapters/db/repositories.js';
@@ -106,28 +105,6 @@ describe.skipIf(!dbUrl)('painel no Postgres', () => {
     ]);
     expect(await admin.getVersion(t2, 4)).toBeNull();
     expect(await admin.listVersions(t2, 10)).toEqual([]);
-  });
-
-  it('grade: lista por período e academia, ajusta vagas respeitando reservas, exclui só sem reserva', async () => {
-    const slots = new PgTrialSlotRepository(sql);
-    const s = await slots.create(t1, { modality: 'Pilates', startsAt: new Date('2030-01-10T13:00:00Z'), capacity: 4 });
-    await slots.create(t2, { modality: 'Outra', startsAt: new Date('2030-01-10T13:00:00Z'), capacity: 4 });
-
-    const listed = await slots.list(t1, new Date('2030-01-10T00:00:00Z'), new Date('2030-01-11T00:00:00Z'));
-    expect(listed.map((x) => x.modality)).toEqual(['Pilates']);
-
-    const [lead] = await sql<{ id: string }[]>`insert into leads (tenant_id, phone) values (${t1}, '+55') returning id`;
-    await sql`update trial_slots set booked = 2 where id = ${s.id}`;
-    await sql`insert into trial_bookings (slot_id, lead_id) values (${s.id}, ${lead!.id})`;
-
-    expect(await slots.updateCapacity(t1, s.id, 1)).toBe('below_booked');
-    expect(await slots.updateCapacity(t1, s.id, 2)).toBe('ok');
-    expect(await slots.updateCapacity(t2, s.id, 9)).toBe('not_found');
-    expect(await slots.delete(t1, s.id)).toBe('has_bookings');
-    expect(await slots.delete(t2, s.id)).toBe('not_found');
-
-    const free = await slots.create(t1, { modality: 'Spinning', startsAt: new Date('2030-01-11T13:00:00Z'), capacity: 3 });
-    expect(await slots.delete(t1, free.id)).toBe('ok');
   });
 });
 

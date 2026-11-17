@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Me } from './api';
 import { AgendaPage } from './AgendaPage';
 import { KnowledgePage } from './KnowledgePage';
-import { LeadsPage } from './LeadsPage';
+import { ClientsPage } from './ClientsPage';
 import { LoginPage } from './LoginPage';
 import { PasswordPage } from './PasswordPage';
 import { ProfessionalsPage } from './ProfessionalsPage';
@@ -14,7 +14,7 @@ const TABS = [
   { id: 'agenda', label: 'Agenda' },
   { id: 'servicos', label: 'Serviços' },
   { id: 'profissionais', label: 'Profissionais' },
-  { id: 'leads', label: 'Clientes' },
+  { id: 'clientes', label: 'Clientes' },
   { id: 'base', label: 'O que a IA sabe' },
   { id: 'relatorio', label: 'Relatório' },
   { id: 'config', label: 'Configurações', ownerOnly: true },
@@ -88,7 +88,7 @@ export function App() {
         {current === 'agenda' && <AgendaPage me={me} />}
         {current === 'servicos' && <ServicesPage me={me} />}
         {current === 'profissionais' && <ProfessionalsPage me={me} />}
-        {current === 'leads' && <LeadsPage me={me} />}
+        {current === 'clientes' && <ClientsPage me={me} />}
         {current === 'base' && <KnowledgePage me={me} />}
         {current === 'relatorio' && <ReportPage me={me} />}
         {current === 'config' && <SettingsPage />}

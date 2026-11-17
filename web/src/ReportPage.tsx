@@ -229,7 +229,7 @@ export function ReportPage({ me }: { me: Me }) {
           <div>
             <dt>Mensagens do WhatsApp</dt>
             <dd className="big">Na Meta</dd>
-            <dd className="sub">O valor cobrado pela Meta aparece no WhatsApp Manager da academia</dd>
+            <dd className="sub">O valor cobrado pela Meta aparece no WhatsApp Manager do salão</dd>
           </div>
         </dl>
       </section>

@@ -2,8 +2,7 @@ import { Redis } from 'ioredis';
 import { resolve } from 'node:path';
 import { ScryptPasswordHasher } from './adapters/crypto/scrypt-hasher.js';
 import {
-  PgBookingAdminRepository,
-  PgLeadAdminRepository,
+  PgClientAdminRepository,
   PgReportRepository,
   PgUnansweredQuestionRepository,
 } from './adapters/db/panel-repositories.js';
@@ -12,7 +11,6 @@ import {
   PgTenantSettingsRepository,
   PgAdminUserRepository,
   PgKnowledgeAdminRepository,
-  PgTrialSlotRepository,
 } from './adapters/db/admin-repositories.js';
 import { PgAgendaAdminRepository } from './adapters/db/agenda-admin-repository.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
@@ -67,17 +65,15 @@ const app = buildServer({
     sessions: new JwtSessionStore(redis, jwtSecret, sessionTtlSec),
     limiter: new RedisLoginRateLimiter(redis),
     knowledge: new PgKnowledgeAdminRepository(sql),
-    slots: new PgTrialSlotRepository(sql),
     catalog,
     agendaAdmin: new PgAgendaAdminRepository(sql),
     agenda: { catalog, appointments: new PgAppointmentRepository(sql), reminders: appointmentReminders, now: () => new Date() },
-    leads: new PgLeadAdminRepository(sql),
+    clients: new PgClientAdminRepository(sql),
     settings: new PgTenantSettingsRepository(sql),
     unanswered: new PgUnansweredQuestionRepository(sql),
     llm: env.LLM_API_KEY ? new AnthropicLlmClient(env.LLM_API_KEY, env.LLM_MODEL, env.LLM_BASE_URL) : null,
     agentMaxSteps: env.AGENT_MAX_STEPS,
     testLimiter: new RedisLoginRateLimiter(redis, 30, 60 * 60),
-    bookings: new PgBookingAdminRepository(sql),
     reports: new PgReportRepository(sql),
     tenantInfo: (id) => tenants.infoOf(id),
     chatwootPublicUrl: env.CHATWOOT_PUBLIC_URL ?? null,

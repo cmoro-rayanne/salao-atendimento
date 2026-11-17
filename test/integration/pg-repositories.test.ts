@@ -23,7 +23,7 @@ describe.skipIf(!url)('repositórios Postgres', () => {
     sql = createSql(url!);
     await sql`truncate tenants, leads, knowledge_items, processed_events, agent_runs, handoffs restart identity cascade`;
     const [t] = await sql<{ id: string }[]>`
-      insert into tenants (name, chatwoot_account_id, knowledge_version) values ('Cia da Forma', 1, 3) returning id
+      insert into tenants (name, chatwoot_account_id, knowledge_version) values ('Studio Aurora', 1, 3) returning id
     `;
     tenantId = Number(t!.id);
     await sql`
@@ -39,37 +39,26 @@ describe.skipIf(!url)('repositórios Postgres', () => {
 
   it('acha a academia pela conta do Chatwoot', async () => {
     const tenant = await new PgTenantRepository(sql).findByChatwootAccount(1);
-    expect(tenant).toEqual({ id: tenantId, name: 'Cia da Forma', timeZone: 'America/Sao_Paulo', privacyUrl: null });
+    expect(tenant).toEqual({ id: tenantId, name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', privacyUrl: null });
     expect(await new PgTenantRepository(sql).findByChatwootAccount(999)).toBeNull();
   });
 
-  it('carrega só os itens ativos da base, com a versão da academia', async () => {
+  it('carrega só os itens ativos da base, com a versão do salão', async () => {
     const kb = await new PgKnowledgeRepository(sql).getActive(tenantId);
     expect(kb).toEqual({ version: 3, items: [{ category: 'Planos', content: 'Mensal R$ 120' }] });
   });
 
-  it('upsert de lead: cria, completa sem apagar e qualifica', async () => {
+  it('upsert de cliente: cria, completa o nome sem apagar e incrementa a versão', async () => {
     const leads = new PgLeadRepository(sql);
     const base = { tenantId, phone: '+5541999990000', chatwootContactId: 5 };
 
     const first = await leads.upsertByPhone({ ...base, name: 'Ana' });
-    const second = await leads.upsertByPhone({ ...base, goal: 'emagrecer' });
+    const second = await leads.upsertByPhone(base);
 
     expect(first.created).toBe(true);
     expect(second).toEqual({ id: first.id, created: false });
-    const [row] = await sql`select name, goal, status, version from leads where id = ${first.id}`;
-    expect(row).toEqual({ name: 'Ana', goal: 'emagrecer', status: 'qualificado', version: 2 });
-  });
-
-  it('lead que já chega com objetivo nasce qualificado', async () => {
-    const { id } = await new PgLeadRepository(sql).upsertByPhone({
-      tenantId,
-      phone: '+5541966665555',
-      chatwootContactId: 7,
-      modality: 'pilates',
-    });
-    const [row] = await sql`select status from leads where id = ${id}`;
-    expect(row).toEqual({ status: 'qualificado' });
+    const [row] = await sql`select name, version from leads where id = ${first.id}`;
+    expect(row).toEqual({ name: 'Ana', version: 2 });
   });
 
   it('upserts concorrentes do mesmo telefone geram um único lead', async () => {

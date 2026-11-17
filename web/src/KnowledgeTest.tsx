@@ -4,13 +4,19 @@ import { api, ApiError, type AgentTestResult, type KnowledgeItem } from './api';
 function describeTool(name: string, input: Record<string, unknown>): string {
   switch (name) {
     case 'registrar_lead':
-      return 'Guardaria os dados do interessado em Leads';
-    case 'listar_horarios_experimental':
-      return 'Consultaria os horários livres da aula experimental';
-    case 'agendar_experimental':
-      return 'Agendaria a aula experimental (no teste, nada é agendado)';
-    case 'cancelar_experimental':
-      return 'Cancelaria a aula experimental da pessoa';
+      return 'Guardaria o nome da cliente em Clientes';
+    case 'listar_servicos':
+      return 'Consultaria os serviços cadastrados';
+    case 'consultar_horarios':
+      return 'Consultaria os horários livres na agenda';
+    case 'meus_agendamentos':
+      return 'Consultaria os agendamentos da cliente';
+    case 'agendar_servico':
+      return 'Agendaria o serviço (no teste, nada é agendado)';
+    case 'remarcar_agendamento':
+      return 'Remarcaria o agendamento da cliente';
+    case 'cancelar_agendamento':
+      return 'Cancelaria o agendamento da cliente';
     case 'transferir_para_humano':
       return `Passaria a conversa para a equipe: ${String(input.motivo ?? '')}`;
     default:

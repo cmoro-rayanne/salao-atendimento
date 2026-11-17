@@ -395,16 +395,6 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
 }
-.day-date {
-  display: block;
-  font-weight: 500;
-  font-stretch: 100%;
-  color: var(--ink-soft);
-}
-.day-empty {
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
 .slot {
   display: flex;
   flex-wrap: wrap;
@@ -414,34 +404,6 @@ button:disabled {
   background: #fff;
   border-left: 5px solid var(--plate);
   border-radius: 3px 8px 8px 3px;
-}
-.slot.past {
-  opacity: 0.55;
-}
-.slot-time {
-  font-weight: 800;
-  font-stretch: 112%;
-  font-variant-numeric: tabular-nums;
-}
-.slot-modality {
-  font-weight: 600;
-  overflow-wrap: break-word;
-  min-width: 0;
-}
-.pips {
-  flex-basis: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.pip {
-  width: 0.8rem;
-  height: 0.8rem;
-  border-radius: 50%;
-  border: 2px solid var(--plate);
-}
-.pip.on {
-  background: var(--plate);
 }
 .slot-actions {
   flex-basis: 100%;
@@ -721,98 +683,10 @@ label.check input[type='checkbox'] {
   gap: 0.4rem;
   flex: 1 1 26rem;
 }
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem 2rem;
-  margin: 0;
-}
-.stats div {
-  display: flex;
-  flex-direction: column-reverse;
-}
-.stats dt {
-  color: var(--ink-soft);
-  font-size: 0.875rem;
-}
-.stats dd {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 800;
-  font-stretch: 112%;
-  line-height: 1.1;
-}
 
 /* Cores de situação do lead: nome sempre escrito, cor só reforça. */
-.st-novo {
-  --st: #8a949c;
-}
-.st-qualificado {
-  --st: var(--plate-blue);
-}
-.st-experimental_agendada {
-  --st: var(--plate-yellow);
-}
-.st-matriculado {
-  --st: var(--plate-green);
-}
-.st-perdido {
-  --st: var(--danger);
-}
 
 /* ---------- Leads ---------- */
-.funnel-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 2px;
-  background: var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.funnel-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0;
-  background: var(--paper);
-  text-align: left;
-  min-height: 44px;
-}
-.funnel-cell[aria-pressed='true'] {
-  background: #fff;
-  box-shadow: inset 0 -4px 0 var(--st);
-}
-.funnel-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-.dot {
-  width: 0.65rem;
-  height: 0.65rem;
-  border-radius: 50%;
-  background: var(--st);
-  flex: 0 0 auto;
-}
-.funnel-count {
-  font-size: 2rem;
-  font-weight: 800;
-  font-stretch: 112%;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 720px) {
-  .funnel-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .funnel-count {
-    font-size: 1.5rem;
-  }
-}
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -828,9 +702,7 @@ label.check input[type='checkbox'] {
 .filters .grow {
   flex: 1 1 17rem;
 }
-.filters input,
-.filters select,
-.status-select {
+.filters input, .filters select {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
@@ -864,10 +736,6 @@ label.check input[type='checkbox'] {
   padding: 0.75rem 1rem;
   border-top: 1px solid #dde2e0;
   vertical-align: middle;
-}
-.status-select {
-  font-weight: 600;
-  border-left: 5px solid var(--st);
 }
 
 /* ---------- Aulas agendadas ---------- */
@@ -944,10 +812,6 @@ label.check input[type='checkbox'] {
   border-color: var(--danger);
   color: #fff;
 }
-.reminder {
-  flex: 0 0 13rem;
-  text-align: right;
-}
 @media (max-width: 720px) {
   .booking-time {
     width: auto;
@@ -957,10 +821,6 @@ label.check input[type='checkbox'] {
   }
   .att {
     flex: 1 1 0;
-  }
-  .reminder {
-    flex-basis: 100%;
-    text-align: left;
   }
 }
 
@@ -1159,10 +1019,7 @@ label.check input[type='checkbox'] {
     break-inside: avoid;
     border: 1px solid var(--line);
   }
-  .funnel-bar,
-  .hour,
-  .meter span,
-  .dot {
+  .funnel-bar, .hour, .meter span {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1178,9 +1035,6 @@ a:hover {
 
 /* No celular, a tabela de leads vira uma lista de cartões. */
 @media (max-width: 720px) {
-  .funnel-cell:last-child {
-    grid-column: 1 / -1;
-  }
   .table-box {
     background: none;
     overflow: visible;
@@ -1228,9 +1082,6 @@ a:hover {
   .data-table td:nth-child(6) {
     grid-column: 1 / -1;
     text-align: left;
-  }
-  .status-select {
-    width: 100%;
   }
 }
 

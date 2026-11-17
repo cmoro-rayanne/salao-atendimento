@@ -7,15 +7,11 @@ import { KnowledgeTest } from './KnowledgeTest';
 const MAX_TOTAL = 30_000;
 const STARTER: KnowledgeItem[] = [
   { category: 'Endereço e estacionamento', content: '', active: true },
-  {
-    category: 'Horário de funcionamento e da recepção',
-    content: '',
-    active: true,
-  },
-  { category: 'Planos e preços', content: '', active: true },
-  { category: 'Modalidades e horários das aulas', content: '', active: true },
-  { category: 'Aula experimental', content: '', active: true },
-  { category: 'Regras da academia', content: '', active: true },
+  { category: 'Horário de funcionamento e da recepção', content: '', active: true },
+  { category: 'Formas de pagamento', content: '', active: true },
+  { category: 'Política de cancelamento e atraso', content: '', active: true },
+  { category: 'Cuidados antes e depois dos serviços', content: '', active: true },
+  { category: 'Regras do salão', content: '', active: true },
 ];
 
 interface Row extends KnowledgeItem {

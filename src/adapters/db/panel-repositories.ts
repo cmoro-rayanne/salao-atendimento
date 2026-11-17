@@ -1,167 +1,70 @@
 import { z } from 'zod';
-import type {
-  LeadAdminRepository,
-  LeadListItem,
-  LeadQuery,
-  LeadStatus,
-  UpdateLeadStatusResult,
-} from '../../modules/leads/ports.js';
-import { LEAD_STATUSES } from '../../modules/leads/ports.js';
+import type { ClientAdminRepository, ClientListItem, ClientQuery } from '../../modules/clients/ports.js';
 import type { UnansweredQuestion, UnansweredQuestionRepository } from '../../modules/handoff/ports.js';
 import type { MonthlyRawData, ReportRange, ReportRepository } from '../../modules/reports/ports.js';
-import type { Attendance, BookingAdminRepository, PanelBooking } from '../../modules/trial-classes/ports.js';
 import type { Sql } from './client.js';
-
-interface LeadRow {
-  id: string;
-  name: string | null;
-  phone: string;
-  goal: string | null;
-  modality: string | null;
-  status: LeadStatus;
-  version: number;
-  chatwoot_contact_id: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
 
 /** Escapa curingas do LIKE para a busca tratar o texto literalmente. */
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export class PgLeadAdminRepository implements LeadAdminRepository {
+export class PgClientAdminRepository implements ClientAdminRepository {
   constructor(private readonly sql: Sql) {}
 
-  async list(
-    tenantId: number,
-    q: LeadQuery,
-  ): Promise<{ items: LeadListItem[]; counts: Record<LeadStatus, number> }> {
+  async list(tenantId: number, q: ClientQuery): Promise<ClientListItem[]> {
     const search = q.search?.trim();
     const digits = search?.replace(/\D/g, '') ?? '';
-    const searchFilter = search
+    const filter = search
       ? this.sql`and (l.name ilike ${'%' + likeEscape(search) + '%'} ${
           digits.length >= 3 ? this.sql`or regexp_replace(l.phone, '\\D', '', 'g') like ${'%' + digits + '%'}` : this.sql``
         })`
       : this.sql``;
-    const period = this.sql`l.tenant_id = ${tenantId} and l.updated_at >= ${q.from} and l.updated_at < ${q.to}`;
 
-    const rows = await this.sql<LeadRow[]>`
-      select l.id, l.name, l.phone, l.goal, l.modality, l.status, l.version, l.chatwoot_contact_id, l.created_at, l.updated_at
-      from leads l
-      where ${period} ${q.status ? this.sql`and l.status = ${q.status}` : this.sql``} ${searchFilter}
-      order by l.updated_at desc
-      limit ${q.limit}
-    `;
-    const countRows = await this.sql<{ status: LeadStatus; n: number }[]>`
-      select l.status, count(*)::int as n from leads l where ${period} ${searchFilter} group by l.status
-    `;
-    const counts = Object.fromEntries(LEAD_STATUSES.map((s) => [s, 0])) as Record<LeadStatus, number>;
-    for (const r of countRows) counts[r.status] = r.n;
-
-    return {
-      items: rows.map((r) => ({
-        id: Number(r.id),
-        name: r.name,
-        phone: r.phone,
-        goal: r.goal,
-        modality: r.modality,
-        status: r.status,
-        version: r.version,
-        chatwootContactId: r.chatwoot_contact_id === null ? null : Number(r.chatwoot_contact_id),
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-      })),
-      counts,
-    };
-  }
-
-  async updateStatus(
-    tenantId: number,
-    id: number,
-    status: LeadStatus,
-    expectedVersion: number,
-  ): Promise<UpdateLeadStatusResult> {
-    const [row] = await this.sql<{ version: number }[]>`
-      update leads set
-        status = ${status},
-        version = version + 1,
-        updated_at = now(),
-        enrolled_at = case
-          when ${status} = 'matriculado' then coalesce(enrolled_at, now())
-          else null
-        end
-      where id = ${id} and tenant_id = ${tenantId} and version = ${expectedVersion}
-      returning version
-    `;
-    if (row) return { kind: 'ok', version: row.version };
-    const [current] = await this.sql<{ version: number }[]>`
-      select version from leads where id = ${id} and tenant_id = ${tenantId}
-    `;
-    return current ? { kind: 'conflict', currentVersion: current.version } : { kind: 'not_found' };
-  }
-}
-
-export class PgBookingAdminRepository implements BookingAdminRepository {
-  constructor(private readonly sql: Sql) {}
-
-  async list(tenantId: number, from: Date, to: Date): Promise<PanelBooking[]> {
     const rows = await this.sql<
       {
         id: string;
-        status: PanelBooking['status'];
-        starts_at: Date;
-        modality: string;
-        lead_id: string;
         name: string | null;
         phone: string;
-        goal: string | null;
-        reminder_sent_at: Date | null;
-        reminder_job_id: string | null;
-        chatwoot_conversation_id: string | null;
+        chatwoot_contact_id: string | null;
+        opted_out_at: Date | null;
+        updated_at: Date;
+        completed: number;
+        no_shows: number;
+        next_starts_at: Date | null;
+        next_service: string | null;
+        next_professional: string | null;
       }[]
     >`
-      select b.id, b.status, s.starts_at, s.modality, l.id as lead_id, l.name, l.phone, l.goal,
-             b.reminder_sent_at, b.reminder_job_id, b.chatwoot_conversation_id
-      from trial_bookings b
-      join trial_slots s on s.id = b.slot_id
-      join leads l on l.id = b.lead_id
-      where s.tenant_id = ${tenantId} and s.starts_at >= ${from} and s.starts_at < ${to}
-        and b.status <> 'cancelada'
-      order by s.starts_at, l.name
+      select l.id, l.name, l.phone, l.chatwoot_contact_id, l.opted_out_at, l.updated_at,
+             (select count(*)::int from appointments a where a.lead_id = l.id and a.status = 'concluido') as completed,
+             (select count(*)::int from appointments a where a.lead_id = l.id and a.status = 'faltou') as no_shows,
+             nx.starts_at as next_starts_at, nx.service_name as next_service, nx.professional_name as next_professional
+      from leads l
+      left join lateral (
+        select a.starts_at, sv.name as service_name, p.name as professional_name
+        from appointments a
+        join salon_services sv on sv.id = a.service_id
+        join professionals p on p.id = a.professional_id
+        where a.lead_id = l.id and a.status = 'agendado' and a.starts_at > ${q.now}
+        order by a.starts_at limit 1
+      ) nx on true
+      where l.tenant_id = ${tenantId} ${filter}
+      order by l.updated_at desc
+      limit ${q.limit}
     `;
     return rows.map((r) => ({
       id: Number(r.id),
-      status: r.status,
-      startsAt: r.starts_at,
-      modality: r.modality,
-      leadId: Number(r.lead_id),
-      leadName: r.name,
-      leadPhone: r.phone,
-      leadGoal: r.goal,
-      reminderSentAt: r.reminder_sent_at,
-      reminderScheduled: r.reminder_job_id !== null && r.reminder_sent_at === null,
-      chatwootConversationId: r.chatwoot_conversation_id === null ? null : Number(r.chatwoot_conversation_id),
+      name: r.name,
+      phone: r.phone,
+      chatwootContactId: r.chatwoot_contact_id === null ? null : Number(r.chatwoot_contact_id),
+      nextAppointment:
+        r.next_starts_at && r.next_service && r.next_professional
+          ? { startsAt: r.next_starts_at, serviceName: r.next_service, professionalName: r.next_professional }
+          : null,
+      completed: r.completed,
+      noShows: r.no_shows,
+      optedOut: r.opted_out_at !== null,
+      updatedAt: r.updated_at,
     }));
-  }
-
-  async markAttendance(
-    tenantId: number,
-    id: number,
-    status: Attendance,
-    now: Date,
-  ): Promise<'ok' | 'not_found' | 'not_started'> {
-    const updated = await this.sql`
-      update trial_bookings b set status = ${status}
-      from trial_slots s
-      where b.id = ${id} and s.id = b.slot_id and s.tenant_id = ${tenantId}
-        and b.status <> 'cancelada' and s.starts_at <= ${now}
-      returning b.id
-    `;
-    if (updated.length) return 'ok';
-    const exists = await this.sql`
-      select 1 from trial_bookings b join trial_slots s on s.id = b.slot_id
-      where b.id = ${id} and s.tenant_id = ${tenantId} and b.status <> 'cancelada'
-    `;
-    return exists.length ? 'not_started' : 'not_found';
   }
 }
 

@@ -15,8 +15,6 @@ import { defineTool, type AgentTool } from './ports.js';
 
 const RegistrarLeadInput = z.object({
   nome: z.string().max(120).optional().describe('Nome que a pessoa informou'),
-  objetivo: z.string().max(300).optional().describe('O que a pessoa procura, ex.: mudar o visual, hidratação, noiva'),
-  modalidade: z.string().max(120).optional().describe('Serviço de interesse, ex.: corte, coloração, manicure'),
 });
 
 const ConsultarHorariosInput = z.object({
@@ -86,7 +84,7 @@ export function buildTools(deps: ToolDeps): AgentTool[] {
       spec: {
         name: 'registrar_lead',
         description:
-          'Salva ou completa os dados do interessado (nome, objetivo, modalidade). Use assim que a pessoa informar algum desses dados.',
+          'Salva o nome da cliente. Use assim que a pessoa disser como quer ser chamada.',
         inputJsonSchema: jsonSchema(RegistrarLeadInput),
       },
       input: RegistrarLeadInput,

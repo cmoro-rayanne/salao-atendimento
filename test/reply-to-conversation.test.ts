@@ -80,7 +80,7 @@ function setup(opts: {
     tenants: {
       async findByChatwootAccount() {
         return opts.tenant === undefined
-          ? { id: 10, name: 'Cia da Forma', timeZone: 'America/Sao_Paulo', privacyUrl: 'https://ciadaforma.com.br/privacidade' }
+          ? { id: 10, name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', privacyUrl: 'https://aurora.com.br/privacidade' }
           : opts.tenant;
       },
     },
@@ -151,7 +151,7 @@ describe('replyToConversation', () => {
     const t = setup({ turns: [{ type: 'text', text: 'Oi!' }] });
     await replyToConversation(t.deps, JOB);
     expect(t.llm.systems[0]).toContain('Mensal: R$ 120');
-    expect(t.llm.systems[0]).toContain('Cia da Forma');
+    expect(t.llm.systems[0]).toContain('Studio Aurora');
     expect(t.llm.systems[0]).toContain('atendimento automatizado');
   });
 
@@ -164,13 +164,13 @@ describe('replyToConversation', () => {
   it('registra o lead pelo telefone do contato', async () => {
     const t = setup({
       turns: [
-        { type: 'tool_calls', calls: [{ id: 'c1', name: 'registrar_lead', input: { objetivo: 'emagrecer' } }] },
+        { type: 'tool_calls', calls: [{ id: 'c1', name: 'registrar_lead', input: { nome: 'Ana' } }] },
         { type: 'text', text: 'Anotado!' },
       ],
     });
     await replyToConversation(t.deps, JOB);
     expect(t.leads).toEqual([
-      { tenantId: 10, phone: '+5541999990000', chatwootContactId: 5, name: 'Ana', goal: 'emagrecer', modality: undefined },
+      { tenantId: 10, phone: '+5541999990000', chatwootContactId: 5, name: 'Ana' },
     ]);
   });
 
@@ -202,7 +202,7 @@ describe('replyToConversation', () => {
     expect(t.sent).toEqual([HANDOFF_MESSAGE]);
   });
 
-  it('não chama a IA quando a academia não está cadastrada', async () => {
+  it('não chama a IA quando o salão não está cadastrada', async () => {
     const t = setup({ turns: [], tenant: null });
     const outcome = await replyToConversation(t.deps, JOB);
     expect(outcome).toBe('handoff_no_tenant');
@@ -241,7 +241,7 @@ describe('LGPD na conversa', () => {
     const first = setup({ turns: [{ type: 'text', text: 'Oi!' }] });
     await replyToConversation(first.deps, JOB);
     expect(first.sent[0]).toBe(
-      'Oi!\n\n_Atendimento automatizado. Política de privacidade: https://ciadaforma.com.br/privacidade Para não receber lembretes, responda SAIR._',
+      'Oi!\n\n_Atendimento automatizado. Política de privacidade: https://aurora.com.br/privacidade Para não receber lembretes, responda SAIR._',
     );
 
     const later = setup({ turns: [{ type: 'text', text: 'Oi de novo!' }], hasReplies: true });
@@ -261,8 +261,8 @@ describe('LGPD na conversa', () => {
     expect(back.optOuts).toEqual([false]);
   });
 
-  it('"quero sair da academia" é conversa normal, não comando', async () => {
-    const t = setup({ turns: [{ type: 'text', text: 'Vou chamar a equipe.' }], history: [{ role: 'user', content: 'quero sair da academia' }] });
+  it('"quero sair do salão" é conversa normal, não comando', async () => {
+    const t = setup({ turns: [{ type: 'text', text: 'Vou chamar a equipe.' }], history: [{ role: 'user', content: 'quero sair do salão' }] });
     expect(await replyToConversation(t.deps, JOB)).toBe('reply');
     expect(t.optOuts).toEqual([]);
   });

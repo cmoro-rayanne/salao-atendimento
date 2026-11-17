@@ -46,24 +46,16 @@ export class PgLeadRepository implements LeadRepository {
   /** Upsert atômico: `coalesce` mantém o valor salvo quando o novo vem vazio. */
   async upsertByPhone(input: UpsertLeadInput): Promise<{ id: number; created: boolean }> {
     const [row] = await this.sql<{ id: string; created: boolean }[]>`
-      insert into leads (tenant_id, phone, chatwoot_contact_id, name, goal, modality, status)
-      values (
-        ${input.tenantId}, ${input.phone}, ${input.chatwootContactId},
-        ${input.name ?? null}, ${input.goal ?? null}, ${input.modality ?? null},
-        ${input.goal || input.modality ? 'qualificado' : 'novo'}
-      )
+      insert into leads (tenant_id, phone, chatwoot_contact_id, name)
+      values (${input.tenantId}, ${input.phone}, ${input.chatwootContactId}, ${input.name ?? null})
       on conflict (tenant_id, phone) do update set
         chatwoot_contact_id = excluded.chatwoot_contact_id,
         name       = coalesce(excluded.name, leads.name),
-        goal       = coalesce(excluded.goal, leads.goal),
-        modality   = coalesce(excluded.modality, leads.modality),
-        status     = case when leads.status = 'novo' and (excluded.goal is not null or excluded.modality is not null)
-                          then 'qualificado' else leads.status end,
         version    = leads.version + 1,
         updated_at = now()
       returning id, (xmax = 0) as created
     `;
-    if (!row) throw new Error('upsert de lead não retornou linha');
+    if (!row) throw new Error('upsert de cliente não retornou linha');
     return { id: Number(row.id), created: row.created };
   }
 

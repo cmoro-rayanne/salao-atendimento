@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createSql, type Sql } from '../../src/adapters/db/client.js';
 import {
-  PgBookingAdminRepository,
-  PgLeadAdminRepository,
+  PgClientAdminRepository,
   PgReportRepository,
   PgUnansweredQuestionRepository,
 } from '../../src/adapters/db/panel-repositories.js';
@@ -12,7 +11,7 @@ import { buildMonthlyReport } from '../../src/modules/reports/monthly-report.js'
 const dbUrl = process.env.TEST_DATABASE_URL;
 const TZ = 'America/Sao_Paulo';
 
-describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
+describe.skipIf(!dbUrl)('clientes e relatório no Postgres', () => {
   let sql: Sql;
   let t1: number;
   let t2: number;
@@ -29,7 +28,7 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
       returning id
     `).map((r) => Number(r.id)) as [number, number];
 
-    // Conversas: 101 e 102 em novembro; 103 em 31/10 às 23h (fora); 104 é de outra academia.
+    // Conversas: 101 e 102 em novembro; 103 em 31/10 às 23h (fora); 104 é de outro salão.
     const run = (tenant: number, conv: number, at: string, outcome = 'reply', cost = 0.01, latency = 4000) =>
       sql`insert into agent_runs (tenant_id, conversation_id, outcome, cost_usd, latency_ms, created_at, input_tokens, output_tokens, steps)
           values (${tenant}, ${conv}, ${outcome}, ${cost}, ${latency}, ${br(at)}, 0, 0, 1)`;
@@ -43,23 +42,13 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
       (${t1}, 102, 'Quer se matricular', ${br('2026-11-05T10:01:00')}),
       (${t2}, 104, 'Lesão no joelho', ${br('2026-11-03T10:01:00')})`;
 
-    // Leads: Carla (interesse, criada em nov, matriculada em nov), Bia (sem interesse), Davi (criado em out).
-    await sql`insert into leads (tenant_id, phone, name, goal, status, created_at, updated_at, enrolled_at) values
-      (${t1}, '+5541911110001', 'Carla Mendes', 'emagrecer', 'matriculado', ${br('2026-11-02T22:31:00')}, ${br('2026-11-10T10:00:00')}, ${br('2026-11-10T10:00:00')}),
-      (${t1}, '+5541911110002', 'Bia', null, 'novo', ${br('2026-11-05T10:00:00')}, ${br('2026-11-05T10:00:00')}, null),
-      (${t1}, '+5541911110003', 'Davi', 'massa', 'qualificado', ${br('2026-10-20T10:00:00')}, ${br('2026-10-20T10:00:00')}, null),
-      (${t2}, '+5541911110004', 'Outra', 'x', 'novo', ${br('2026-11-03T10:00:00')}, ${br('2026-11-03T10:00:00')}, null)`;
-
-    // Aulas de novembro: uma veio, uma faltou, uma cancelada; uma em dezembro.
-    const [s1, s2, s3, s4] = (await sql<{ id: string }[]>`insert into trial_slots (tenant_id, modality, starts_at, capacity, booked) values
-      (${t1}, 'Pilates', ${br('2026-11-06T08:00:00')}, 4, 1),
-      (${t1}, 'Funcional', ${br('2026-11-07T08:00:00')}, 4, 1),
-      (${t1}, 'Funcional', ${br('2026-11-08T08:00:00')}, 4, 0),
-      (${t1}, 'Pilates', ${br('2026-12-02T08:00:00')}, 4, 1)
-      returning id`).map((r) => Number(r.id));
+    // Clientes: Carla (criada em nov), Bia (nov), Davi (criado em out); Outra é de outro salão.
+    await sql`insert into leads (tenant_id, phone, name, created_at, updated_at) values
+      (${t1}, '+5541911110001', 'Carla Mendes', ${br('2026-11-02T22:31:00')}, ${br('2026-11-10T10:00:00')}),
+      (${t1}, '+5541911110002', 'Bia', ${br('2026-11-05T10:00:00')}, ${br('2026-11-05T10:00:00')}),
+      (${t1}, '+5541911110003', 'Davi', ${br('2026-10-20T10:00:00')}, ${br('2026-10-20T10:00:00')}),
+      (${t2}, '+5541911110004', 'Outra', ${br('2026-11-03T10:00:00')}, ${br('2026-11-03T10:00:00')})`;
     const [lead] = await sql<{ id: string }[]>`select id from leads where phone = '+5541911110001'`;
-    await sql`insert into trial_bookings (slot_id, lead_id, status) values
-      (${s1!}, ${lead!.id}, 'compareceu'), (${s2!}, ${lead!.id}, 'faltou'), (${s3!}, ${lead!.id}, 'cancelada'), (${s4!}, ${lead!.id}, 'agendada')`;
 
     // Salão: serviços, profissionais e agendamentos de novembro (concluído x2 de Corte, falta de Escova,
     // cancelado de Corte, agendado futuro de Corte); um em dezembro e um de outro salão ficam de fora.
@@ -69,16 +58,17 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
       Number((await sql<{ id: string }[]>`insert into professionals (tenant_id, name) values (${t}, ${name}) returning id`)[0]!.id);
     const [corte, escova, outroServico] = [await sv(t1, 'Corte'), await sv(t1, 'Escova'), await sv(t2, 'Corte')];
     const [ana, outraProf] = [await pr(t1, 'Ana'), await pr(t2, 'Zé')];
-    const ap = (t: number, prof: number, svc: number, at: string, status: string) =>
+    const [outra] = await sql<{ id: string }[]>`select id from leads where phone = '+5541911110004'`;
+    const ap = (t: number, prof: number, svc: number, at: string, status: string, who = lead!.id) =>
       sql`insert into appointments (tenant_id, lead_id, professional_id, service_id, starts_at, ends_at, status)
-          values (${t}, ${lead!.id}, ${prof}, ${svc}, ${br(at)}, ${br(at)}::timestamptz + interval '30 minutes', ${status})`;
+          values (${t}, ${who}, ${prof}, ${svc}, ${br(at)}, ${br(at)}::timestamptz + interval '30 minutes', ${status})`;
     await ap(t1, ana, corte, '2026-11-03T09:00:00', 'concluido');
     await ap(t1, ana, corte, '2026-11-04T09:00:00', 'concluido');
     await ap(t1, ana, escova, '2026-11-05T09:00:00', 'faltou');
     await ap(t1, ana, corte, '2026-11-06T09:00:00', 'cancelado');
     await ap(t1, ana, corte, '2026-11-20T09:00:00', 'agendado');
     await ap(t1, ana, corte, '2026-12-02T09:00:00', 'agendado');
-    await ap(t2, outraProf, outroServico, '2026-11-03T09:00:00', 'concluido');
+    await ap(t2, outraProf, outroServico, '2026-11-03T09:00:00', 'concluido', outra!.id);
   });
 
   afterAll(async () => {
@@ -126,36 +116,18 @@ describe.skipIf(!dbUrl)('leads, presença e relatório no Postgres', () => {
     expect(report.aiCostBrl).toBeNull();
   });
 
-  it('leads: filtro, busca por telefone sem formatação e contagem', async () => {
-    const repo = new PgLeadAdminRepository(sql);
-    const nov = { from: br('2026-11-01T00:00:00'), to: br('2026-12-01T00:00:00'), limit: 100 };
-    const all = await repo.list(t1, nov);
-    expect(all.items.map((l) => l.name)).toEqual(['Carla Mendes', 'Bia']);
-    expect(all.counts).toMatchObject({ matriculado: 1, novo: 1, qualificado: 0 });
-    expect((await repo.list(t1, { ...nov, status: 'novo' })).items.map((l) => l.name)).toEqual(['Bia']);
-    expect((await repo.list(t1, { ...nov, search: '(41) 91111-0002' })).items.map((l) => l.name)).toEqual(['Bia']);
-    expect((await repo.list(t1, { ...nov, search: 'Bi_' })).items).toHaveLength(0); // curinga tratado como texto
-  });
-
-  it('leads: versão antiga não altera; desmatricular limpa a data', async () => {
-    const repo = new PgLeadAdminRepository(sql);
-    const [carla] = await sql<{ id: string; version: number }[]>`select id, version from leads where name = 'Carla Mendes'`;
-    const id = Number(carla!.id);
-    expect(await repo.updateStatus(t1, id, 'perdido', carla!.version - 1)).toEqual({ kind: 'conflict', currentVersion: carla!.version });
-    expect(await repo.updateStatus(t2, id, 'perdido', carla!.version)).toEqual({ kind: 'not_found' });
-    expect(await repo.updateStatus(t1, id, 'perdido', carla!.version)).toEqual({ kind: 'ok', version: carla!.version + 1 });
-    const [after] = await sql`select status, enrolled_at from leads where id = ${id}`;
-    expect(after).toEqual({ status: 'perdido', enrolled_at: null });
-  });
-
-  it('aulas: lista sem canceladas e marca presença só depois de começar', async () => {
-    const repo = new PgBookingAdminRepository(sql);
-    const list = await repo.list(t1, br('2026-11-01T00:00:00'), br('2027-01-01T00:00:00'));
-    expect(list.map((b) => b.status)).toEqual(['compareceu', 'faltou', 'agendada']);
-    const december = list[2]!;
-    expect(await repo.markAttendance(t1, december.id, 'compareceu', br('2026-11-20T00:00:00'))).toBe('not_started');
-    expect(await repo.markAttendance(t2, december.id, 'compareceu', br('2026-12-03T00:00:00'))).toBe('not_found');
-    expect(await repo.markAttendance(t1, december.id, 'compareceu', br('2026-12-03T00:00:00'))).toBe('ok');
+  it('clientes: lista com próximo horário e contagens; busca por telefone sem formatação', async () => {
+    const repo = new PgClientAdminRepository(sql);
+    const q = { now: br('2026-11-15T00:00:00'), limit: 100 };
+    const all = await repo.list(t1, q);
+    expect(all.map((c) => c.name)).toEqual(['Carla Mendes', 'Bia', 'Davi']);
+    const carla = all.find((c) => c.name === 'Carla Mendes')!;
+    expect(carla).toMatchObject({ completed: 2, noShows: 1, optedOut: false });
+    expect(carla.nextAppointment).toMatchObject({ startsAt: br('2026-11-20T09:00:00'), serviceName: 'Corte', professionalName: 'Ana' });
+    expect(all.find((c) => c.name === 'Bia')!.nextAppointment).toBeNull();
+    expect((await repo.list(t1, { ...q, search: '(41) 91111-0002' })).map((c) => c.name)).toEqual(['Bia']);
+    expect(await repo.list(t1, { ...q, search: 'Bi_' })).toHaveLength(0); // curinga tratado como texto
+    expect((await repo.list(t2, q)).map((c) => c.name)).toEqual(['Outra']);
   });
 
   it('perguntas sem resposta: grava, lista por academia e período, marca resolvida', async () => {

@@ -3,11 +3,9 @@ import type { LeadRepository } from './ports.js';
 
 export interface RegisterLeadInput {
   nome?: string | undefined;
-  objetivo?: string | undefined;
-  modalidade?: string | undefined;
 }
 
-/** Command: registra ou completa o lead do contato da conversa. */
+/** Command: registra ou completa a cliente da conversa. */
 export async function registerLead(leads: LeadRepository, ctx: ToolContext, input: RegisterLeadInput): Promise<string> {
   if (!ctx.contact.phone) {
     return 'Não foi possível registrar: o contato não tem telefone. Siga o atendimento normalmente.';
@@ -18,11 +16,9 @@ export async function registerLead(leads: LeadRepository, ctx: ToolContext, inpu
     phone: ctx.contact.phone,
     chatwootContactId: ctx.contact.chatwootContactId,
     name: clean(input.nome) ?? clean(ctx.contact.name ?? undefined),
-    goal: clean(input.objetivo),
-    modality: clean(input.modalidade),
   });
 
-  return created ? 'Lead registrado.' : 'Lead atualizado.';
+  return created ? 'Cliente registrada.' : 'Cliente atualizada.';
 }
 
 function clean(value: string | undefined): string | undefined {

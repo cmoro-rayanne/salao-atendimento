@@ -1,8 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { api, ApiError, type ImportPreview, type KnowledgeItem, type Role } from './api';
 
-const DAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const clock = (t: { hour: number; minute: number }) => `${t.hour}h${t.minute ? String(t.minute).padStart(2, '0') : ''}`;
 
 export function KnowledgeImport({
   editorCount,
@@ -15,11 +13,9 @@ export function KnowledgeImport({
   onUse: (items: KnowledgeItem[]) => void;
   onClose: () => void;
 }) {
-  const [markdown, setMarkdown] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [schedule, setSchedule] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function pick(e: ChangeEvent<HTMLInputElement>) {
@@ -27,11 +23,9 @@ export function KnowledgeImport({
     if (!file) return;
     setError(null);
     setPreview(null);
-    setSchedule(null);
     setFileName(file.name);
     if (file.size > 200_000) return setError('Arquivo grande demais para ser o documento da base (máx. 200 KB).');
     const text = await file.text();
-    setMarkdown(text);
     setBusy(true);
     try {
       setPreview(await api.previewImport(text));
@@ -52,24 +46,6 @@ export function KnowledgeImport({
     )
       return;
     onUse(preview.items.map((i) => ({ ...i, active: true })));
-  }
-
-  async function createSlots() {
-    if (!markdown) return;
-    setBusy(true);
-    setSchedule(null);
-    try {
-      const r = await api.importSchedule(markdown);
-      setSchedule(
-        r.created === 0
-          ? 'Esses horários já estavam na grade.'
-          : `${r.created} horários criados na Grade da experimental${r.skipped ? ` (${r.skipped} já existiam)` : ''}.`,
-      );
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível criar os horários.');
-    } finally {
-      setBusy(false);
-    }
   }
 
   return (
@@ -109,28 +85,6 @@ export function KnowledgeImport({
               <button className="primary" onClick={use}>
                 Usar no editor
               </button>
-            </div>
-          )}
-
-          {preview.trialRules.length > 0 && (
-            <div className="import-block">
-              <h3>Grade da experimental</h3>
-              <ul className="plain">
-                {preview.trialRules.map((r, n) => (
-                  <li key={n}>
-                    {r.modality}: {r.weekdays.map((d) => DAYS[d]).join('/')} {r.times.map(clock).join(', ')} (
-                    {r.capacity} vagas)
-                  </li>
-                ))}
-              </ul>
-              <button className="tool" disabled={busy} onClick={() => void createSlots()}>
-                Criar {preview.slotCount} horários (próximas 4 semanas)
-              </button>
-              {schedule && (
-                <p className="status ok" role="status">
-                  {schedule}
-                </p>
-              )}
             </div>
           )}
 

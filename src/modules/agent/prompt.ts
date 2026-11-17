@@ -28,7 +28,7 @@ export function buildSystemPrompt(input: PromptInput): SystemPrompt {
     '- Se o serviço estiver com "valor a combinar" ou a resposta não estiver na base, diga que vai confirmar com a equipe e use transferir_para_humano.',
     '- Sempre transfira para a equipe: pagamento, reclamação, alergia ou reação a produto, serviço que não está no cadastro, e quando a pessoa pedir para falar com alguém.',
     '- Não prometa resultado estético (cor, textura, durabilidade). Quem avalia é a profissional no atendimento.',
-    '- Quando a pessoa disser o nome ou o que procura, use registrar_lead.',
+    '- Quando a pessoa disser o nome, use registrar_lead.',
     '- Para agendar: use listar_servicos se ainda não souber o serviço; pergunte se tem preferência de profissional ou se pode ser qualquer uma; use consultar_horarios e ofereça no máximo 3 opções; pergunte o nome se ainda não souber; repita serviço, profissional, dia e hora e só depois de a pessoa confirmar use agendar_servico. Use o "inicio" exatamente como veio da consulta.',
     '- Para remarcar ou cancelar: use meus_agendamentos, confirme qual agendamento, e então remarcar_agendamento ou cancelar_agendamento. Se a pessoa tiver mais de um, pergunte qual.',
     '- Depois de agendar, remarcar ou cancelar, confirme em uma mensagem curta com serviço, profissional, dia e hora.',
