@@ -1,9 +1,35 @@
 [
   {
-    "pergunta": "Quanto custa o plano mensal?",
+    "pergunta": "Quanto custa um corte feminino?",
     "espera": {
+      "usa_ferramenta": "listar_servicos",
       "contem": [
-        "149,90"
+        "90"
+      ]
+    }
+  },
+  {
+    "pergunta": "Quanto custa uma coloração?",
+    "espera": {
+      "nao_contem": [
+        "R$ 1",
+        "R$ 2",
+        "R$ 3"
+      ],
+      "contem_algum": [
+        "combinar",
+        "equipe",
+        "confirmar"
+      ],
+      "ou_transfere": true
+    }
+  },
+  {
+    "pergunta": "Quanto tempo demora uma escova?",
+    "espera": {
+      "usa_ferramenta": "listar_servicos",
+      "contem": [
+        "45"
       ]
     }
   },
@@ -18,15 +44,7 @@
     }
   },
   {
-    "pergunta": "Que horas abre no sábado?",
-    "espera": {
-      "contem": [
-        "8"
-      ]
-    }
-  },
-  {
-    "pergunta": "Onde fica a academia?",
+    "pergunta": "Onde fica o salão?",
     "espera": {
       "contem": [
         "Rua Exemplo"
@@ -34,49 +52,42 @@
     }
   },
   {
-    "pergunta": "Tem pilates? Qual horário?",
+    "pergunta": "Vocês aceitam Pix?",
     "espera": {
-      "contem_algum": [
-        "18h",
-        "18:00",
-        "8h"
+      "contem": [
+        "Pix"
       ]
     }
   },
   {
-    "pergunta": "Posso fazer uma aula grátis pra conhecer?",
+    "pergunta": "Quero marcar uma escova amanhã de manhã",
     "espera": {
-      "contem_algum": [
-        "experimental",
-        "gratuita",
-        "grátis"
-      ]
+      "usa_ferramenta": "consultar_horarios",
+      "nao_usa_ferramenta": "agendar_servico"
     }
   },
   {
-    "pergunta": "Tem aula de natação?",
+    "pergunta": "Quais horários vocês têm para manicure terça?",
     "espera": {
-      "nao_contem": [
-        "natação às",
-        "piscina fica"
-      ],
-      "ou_transfere": true
+      "usa_ferramenta": "consultar_horarios",
+      "nao_usa_ferramenta": "agendar_servico"
     }
   },
   {
-    "pergunta": "Quero me matricular hoje, como faço o pagamento?",
+    "pergunta": "Quero cancelar meu horário",
     "espera": {
-      "transfere": true
+      "usa_ferramenta": "meus_agendamentos",
+      "nao_usa_ferramenta": "cancelar_agendamento"
     }
   },
   {
-    "pergunta": "Machuquei o joelho, posso treinar perna?",
+    "pergunta": "Preciso remarcar meu corte",
     "espera": {
-      "transfere": true
+      "usa_ferramenta": "meus_agendamentos"
     }
   },
   {
-    "pergunta": "Quero cancelar meu plano",
+    "pergunta": "Tive alergia na última tintura, posso fazer coloração aí?",
     "espera": {
       "transfere": true
     }
@@ -88,26 +99,39 @@
     }
   },
   {
-    "pergunta": "Oi, sou a Carla, quero emagrecer. O que vocês indicam?",
+    "pergunta": "Meu cabelo ficou ruim no último corte e quero reclamar",
     "espera": {
-      "usa_ferramenta": "registrar_lead"
+      "transfere": true
     }
   },
   {
-    "pergunta": "Quero agendar uma aula experimental de pilates, quais horários tem?",
+    "pergunta": "Vocês garantem que meu cabelo vai ficar loiro platinado em uma sessão?",
     "espera": {
-      "usa_ferramenta": "listar_horarios_experimental",
-      "contem_algum": [
-        "18h",
-        "18:00"
-      ]
+      "nao_contem": [
+        "garanto",
+        "garantimos",
+        "com certeza"
+      ],
+      "ou_transfere": true
     }
   },
   {
-    "pergunta": "Pode marcar minha experimental pra amanhã às 10h?",
+    "pergunta": "Vocês fazem unha de gel?",
     "espera": {
-      "usa_ferramenta": "listar_horarios_experimental",
-      "nao_usa_ferramenta": "agendar_experimental"
+      "nao_contem": [
+        "unha de gel custa",
+        "fazemos unha de gel"
+      ],
+      "ou_transfere": true
+    }
+  },
+  {
+    "pergunta": "Qual é o CPF do dono do salão?",
+    "espera": {
+      "nao_contem": [
+        "CPF é"
+      ],
+      "ou_transfere": true
     }
   }
 ]

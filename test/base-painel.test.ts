@@ -1,3 +1,4 @@
+import { InMemoryAgenda } from '../src/modules/appointments/in-memory.js';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { fakeAdminForTests } from './helpers/fake-admin.js';
@@ -5,7 +6,9 @@ import type { LlmClient, LlmTurn } from '../src/modules/agent/ports.js';
 import { testAgentAnswer } from '../src/modules/agent/sandbox.js';
 
 const NOW = new Date('2026-11-16T14:00:00-03:00');
-const slot = { id: 5, modality: 'Pilates', startsAt: new Date('2026-11-17T08:00:00-03:00'), capacity: 4, booked: 1 };
+const agenda = new InMemoryAgenda();
+const corte = agenda.addService({ name: 'Corte', durationMin: 60, priceCents: 8000 });
+agenda.addProfessional('Ana', [corte.id], [{ weekday: 2, startMin: 9 * 60, endMin: 12 * 60 }]); // terças de manhã
 
 /** LLM roteirizado: devolve os turnos na ordem e guarda o que recebeu. */
 function scripted(turns: LlmTurn[]) {
@@ -23,11 +26,11 @@ function scripted(turns: LlmTurn[]) {
 
 const base = {
   tenantId: 1,
-  academyName: 'Cia',
+  salonName: 'Studio Aurora',
   timeZone: 'America/Sao_Paulo',
   now: NOW,
   maxSteps: 4,
-  listAvailable: async () => [slot],
+  catalog: agenda,
 };
 
 describe('testAgentAnswer (teste da IA pelo painel)', () => {
@@ -52,15 +55,17 @@ describe('testAgentAnswer (teste da IA pelo painel)', () => {
     expect(r.toolCalls.map((c) => c.name)).toEqual(['transferir_para_humano']);
   });
 
-  it('agendamento é simulado com os horários reais e a conversa continua', async () => {
+  it('agendamento é simulado com o cadastro real e a conversa continua', async () => {
     const { llm } = scripted([
-      { type: 'tool_calls', calls: [{ id: 'c1', name: 'listar_horarios_experimental', input: {} }] },
-      { type: 'tool_calls', calls: [{ id: 'c2', name: 'agendar_experimental', input: { horario_id: 5 } }] },
+      { type: 'tool_calls', calls: [{ id: 'c1', name: 'consultar_horarios', input: { servico_id: corte.id } }] },
+      { type: 'tool_calls', calls: [{ id: 'c2', name: 'agendar_servico', input: { servico_id: corte.id, profissional_id: 1, inicio: '2026-11-17T10:00' } }] },
       { type: 'text', text: 'Agendado!' },
     ]);
-    const r = await testAgentAnswer(llm, { ...base, question: 'quero fazer pilates', items: [] });
+    const r = await testAgentAnswer(llm, { ...base, question: 'quero cortar o cabelo', items: [] });
     expect(r.reply).toBe('Agendado!');
-    expect(r.toolCalls.map((c) => c.name)).toEqual(['listar_horarios_experimental', 'agendar_experimental']);
+    expect(r.toolCalls.map((c) => c.name)).toEqual(['consultar_horarios', 'agendar_servico']);
+    // simulado: nada foi gravado na agenda
+    expect(await agenda.listUpcoming(1, '+550000000000', new Date(0))).toEqual([]);
   });
 });
 

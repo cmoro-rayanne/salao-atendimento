@@ -14,6 +14,7 @@ import {
   PgKnowledgeAdminRepository,
   PgTrialSlotRepository,
 } from './adapters/db/admin-repositories.js';
+import { PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
 import { AnthropicLlmClient } from './adapters/llm/anthropic-client.js';
 import { PgProcessedEventStore } from './adapters/db/processed-event-store.js';
@@ -62,6 +63,7 @@ const app = buildServer({
     limiter: new RedisLoginRateLimiter(redis),
     knowledge: new PgKnowledgeAdminRepository(sql),
     slots: new PgTrialSlotRepository(sql),
+    catalog: new PgCatalogRepository(sql),
     leads: new PgLeadAdminRepository(sql),
     settings: new PgTenantSettingsRepository(sql),
     unanswered: new PgUnansweredQuestionRepository(sql),

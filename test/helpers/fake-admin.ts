@@ -1,3 +1,4 @@
+import { InMemoryAgenda } from '../../src/modules/appointments/in-memory.js';
 import { ScryptPasswordHasher } from '../../src/adapters/crypto/scrypt-hasher.js';
 import { SESSION_COOKIE, type AdminDeps } from '../../src/http/admin-routes.js';
 import { buildServer } from '../../src/http/server.js';
@@ -183,6 +184,7 @@ export async function fakeAdmin() {
         };
       },
     },
+    catalog: new InMemoryAgenda(),
     slots: {
       list: async (tenantId) => [...slots.values()].filter((s) => s.tenantId === tenantId),
       create: async (tenantId, s) => {

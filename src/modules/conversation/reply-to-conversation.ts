@@ -106,7 +106,7 @@ export async function replyToConversation(deps: ReplyDeps, job: ReplyJob): Promi
 
     const knowledge = await deps.knowledge.getActive(tenant.id);
     const system = buildSystemPrompt({
-      academyName: tenant.name,
+      salonName: tenant.name,
       knowledge,
       now: clock(),
       timeZone: tenant.timeZone,

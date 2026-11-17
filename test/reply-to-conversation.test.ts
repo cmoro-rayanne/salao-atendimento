@@ -1,3 +1,4 @@
+import { InMemoryAgenda } from '../src/modules/appointments/in-memory.js';
 import { describe, expect, it } from 'vitest';
 import type { AgentMessage, LlmClient, LlmTurn } from '../src/modules/agent/ports.js';
 import type {
@@ -17,6 +18,7 @@ import {
 import type { UpsertLeadInput } from '../src/modules/leads/ports.js';
 
 const JOB = { accountId: 1, conversationId: 77 };
+const agenda = new InMemoryAgenda();
 
 function scriptedLlm(turns: LlmTurn[]): LlmClient & { systems: string[] } {
   let i = 0;
@@ -118,19 +120,7 @@ function setup(opts: {
         },
       },
     },
-    booking: {
-      now: () => new Date('2026-11-16T13:00:00Z'),
-      reminders: { schedule: async () => 'job-1', cancel: async () => {} },
-      bookings: {
-        listAvailable: async () => [],
-        book: async () => ({ kind: 'not_available' }),
-        setReminderJob: async () => {},
-        cancelActive: async () => ({ kind: 'none' }),
-        getForReminder: async () => null,
-        markReminderSent: async () => true,
-        clearReminderSent: async () => {},
-      },
-    },
+    agenda: { catalog: agenda, appointments: agenda, reminders: { schedule: async () => 'job-1', cancel: async () => {} }, now: () => new Date('2026-11-16T13:00:00Z') },
     now: () => new Date('2026-11-16T13:00:00Z'),
   };
 

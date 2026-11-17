@@ -10,6 +10,7 @@ import {
   resetTeamMemberPassword,
 } from '../modules/auth/manage-users.js';
 import type { LlmClient } from '../modules/agent/ports.js';
+import type { CatalogRepository } from '../modules/appointments/ports.js';
 import { testAgentAnswer } from '../modules/agent/sandbox.js';
 import type { UnansweredQuestionRepository } from '../modules/handoff/ports.js';
 import { parseKnowledgeDoc } from '../modules/knowledge/import-doc.js';
@@ -30,6 +31,7 @@ export const SESSION_COOKIE = 'painel_sid';
 export interface AdminDeps extends LoginDeps {
   knowledge: KnowledgeAdminRepository;
   slots: TrialSlotRepository;
+  catalog: CatalogRepository;
   leads: LeadAdminRepository;
   settings: TenantSettingsRepository;
   unanswered: UnansweredQuestionRepository;
@@ -302,7 +304,7 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
       try {
         const result = await testAgentAnswer(deps.llm, {
           tenantId,
-          academyName: settings.name,
+          salonName: settings.name,
           timeZone: info.timeZone,
           now: deps.now?.() ?? new Date(),
           question: body.data.question,
@@ -310,7 +312,7 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
             .filter((i) => i.active && i.category.trim() && i.content.trim())
             .map((i) => ({ category: i.category.trim(), content: i.content.trim() })),
           maxSteps: deps.agentMaxSteps,
-          listAvailable: (t, from, to) => deps.slots.list(t, from, to).then((s) => s.filter((x) => x.booked < x.capacity)),
+          catalog: deps.catalog,
         });
         req.log.info({ tenantId, userId, tools: result.toolCalls.map((c) => c.name), usage: result.usage }, 'teste da IA');
         return result;

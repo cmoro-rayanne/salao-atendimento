@@ -11,9 +11,10 @@ import { AnthropicLlmClient } from '../src/adapters/llm/anthropic-client.js';
 import { buildSystemPrompt } from '../src/modules/agent/prompt.js';
 import { runAgent } from '../src/modules/agent/run-agent.js';
 import { buildTools } from '../src/modules/agent/tools.js';
+import { InMemoryAgenda } from '../src/modules/appointments/in-memory.js';
 
 const Base = z.object({
-  academia: z.string(),
+  salao: z.string(),
   versao: z.number(),
   itens: z.array(z.object({ categoria: z.string(), conteudo: z.string() })),
 });
@@ -33,7 +34,7 @@ const Caso = z.object({
   resposta_referencia: z.string().optional(),
 });
 
-const EVAL_NOW = new Date('2026-11-16T14:00:00-03:00'); // segunda, 14h: recepção aberta
+const EVAL_NOW = new Date('2026-11-16T14:00:00-03:00'); // segunda, 14h (salão fechado): terça é o próximo dia útil
 
 async function main(): Promise<void> {
   const key = process.env.LLM_API_KEY;
@@ -48,40 +49,33 @@ async function main(): Promise<void> {
   }
   const llm = new AnthropicLlmClient(key, model);
 
+  // Salão de exemplo (mesmos dados da base): terça a sábado, 9h–12h e 13h–19h.
+  const agenda = new InMemoryAgenda();
+  const dias = [2, 3, 4, 5, 6].flatMap((weekday) => [
+    { weekday, startMin: 9 * 60, endMin: 12 * 60 },
+    { weekday, startMin: 13 * 60, endMin: 19 * 60 },
+  ]);
+  const corte = agenda.addService({ name: 'Corte feminino', durationMin: 60, priceCents: 9000 }).id;
+  const escova = agenda.addService({ name: 'Escova', durationMin: 45, priceCents: 6000 }).id;
+  const coloracao = agenda.addService({ name: 'Coloração', durationMin: 120, priceCents: null }).id;
+  const manicure = agenda.addService({ name: 'Manicure', durationMin: 45, priceCents: 4000 }).id;
+  agenda.addProfessional('Ana', [corte, escova, coloracao], dias);
+  agenda.addProfessional('Bia', [corte, escova, manicure], dias);
+  agenda.addProfessional('Carla', [manicure], dias);
+
   const tools = buildTools({
     leads: { upsertByPhone: async () => ({ id: 1, created: true }), setOptOut: async () => {} },
     handoff: {
       inbox: { addPrivateNote: async () => {}, assignToTeam: async () => {} },
       handoffs: { record: async () => {} },
     },
-    booking: {
-      now: () => EVAL_NOW,
-      reminders: { schedule: async () => 'job', cancel: async () => {} },
-      bookings: {
-        // Grade de exemplo: terça e quinta às 18h (pilates) e quarta às 7h (funcional).
-        listAvailable: async (_t, _f, _to, modality) =>
-          [
-            { id: 11, modality: 'Pilates solo', startsAt: new Date('2026-11-17T18:00:00-03:00'), capacity: 4, booked: 1 },
-            { id: 12, modality: 'Funcional', startsAt: new Date('2026-11-18T07:00:00-03:00'), capacity: 6, booked: 2 },
-            { id: 13, modality: 'Pilates solo', startsAt: new Date('2026-11-19T18:00:00-03:00'), capacity: 4, booked: 0 },
-          ].filter((s) => !modality || s.modality.toLowerCase().includes(modality.toLowerCase())),
-        book: async (req) => ({
-          kind: 'booked',
-          booking: { bookingId: 1, slotId: req.slotId, modality: 'Pilates solo', startsAt: new Date('2026-11-17T18:00:00-03:00') },
-        }),
-        setReminderJob: async () => {},
-        cancelActive: async () => ({ kind: 'none' }),
-        getForReminder: async () => null,
-        markReminderSent: async () => true,
-        clearReminderSent: async () => {},
-      },
-    },
+    agenda: { catalog: agenda, appointments: agenda, reminders: { schedule: async () => 'job', cancel: async () => {} }, now: () => EVAL_NOW },
   });
 
   let falhas = 0;
   for (const caso of casos) {
     const system = buildSystemPrompt({
-      academyName: base.academia,
+      salonName: base.salao,
       knowledge: { version: base.versao, items: base.itens.map((i) => ({ category: i.categoria, content: i.conteudo })) },
       now: EVAL_NOW,
       timeZone: 'America/Sao_Paulo',

@@ -3,6 +3,7 @@ import { Redis } from 'ioredis';
 import pino from 'pino';
 import { ChatwootClient } from './adapters/chatwoot/chatwoot-client.js';
 import { ChatwootGateway, DEFAULT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
+import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { PgBookingRepository } from './adapters/db/booking-repository.js';
 import { createSql } from './adapters/db/client.js';
 import {
@@ -43,6 +44,8 @@ const chatwoot = new ChatwootGateway(new ChatwootClient(env.CHATWOOT_BASE_URL, e
 });
 const bookings = new PgBookingRepository(sql);
 const reminders = new BullReminderScheduler(redis);
+/** Lembrete do salão entra na entrega 4 (spec 0013): até lá a fila só atende o código antigo da experimental. */
+const noReminders = { schedule: async () => 'sem-lembrete', cancel: async () => {} };
 const now = () => new Date();
 
 const deps: ReplyDeps = {
@@ -60,7 +63,7 @@ const deps: ReplyDeps = {
   lock: new RedisConversationLock(redis),
   leads: new PgLeadRepository(sql),
   handoff: { inbox: chatwoot, handoffs: new PgHandoffRepository(sql) },
-  booking: { bookings, reminders, now },
+  agenda: { catalog: new PgCatalogRepository(sql), appointments: new PgAppointmentRepository(sql), reminders: noReminders, now },
 };
 
 const worker = new Worker<ReplyJob>(

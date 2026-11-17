@@ -2,7 +2,7 @@
  * Teste da IA pelo painel: roda o agente de verdade com a base do editor,
  * mas com ferramentas que não gravam, não agendam e não transferem nada.
  */
-import type { TrialSlot } from '../trial-classes/ports.js';
+import type { CatalogRepository } from '../appointments/ports.js';
 import type { KnowledgeItem } from '../knowledge/ports.js';
 import type { LlmClient, TokenUsage } from './ports.js';
 import { buildSystemPrompt } from './prompt.js';
@@ -11,14 +11,14 @@ import { buildTools } from './tools.js';
 
 export interface SandboxInput {
   tenantId: number;
-  academyName: string;
+  salonName: string;
   timeZone: string;
   now: Date;
   question: string;
   items: KnowledgeItem[];
   maxSteps: number;
-  /** Leitura real dos horários livres (só consulta), para a resposta sair como no WhatsApp. */
-  listAvailable: (tenantId: number, from: Date, to: Date, modality?: string) => Promise<TrialSlot[]>;
+  /** Cadastro real do salão (só leitura), para a resposta sair como no WhatsApp. */
+  catalog: CatalogRepository;
 }
 
 export interface SandboxResult {
@@ -43,22 +43,33 @@ export async function testAgentAnswer(llm: LlmClient, input: SandboxInput): Prom
         },
       },
     },
-    booking: {
+    agenda: {
       now: () => input.now,
+      catalog: input.catalog,
       reminders: { schedule: async () => 'teste', cancel: async () => {} },
-      bookings: {
-        listAvailable: input.listAvailable,
+      appointments: {
+        // Nada é gravado: o "agendamento" de teste só devolve o que seria marcado.
         book: async (req) => {
-          const slot = (await input.listAvailable(req.tenantId, new Date(0), new Date(8.64e15))).find((s) => s.id === req.slotId);
-          return slot
-            ? { kind: 'booked', booking: { bookingId: 0, slotId: slot.id, modality: slot.modality, startsAt: slot.startsAt } }
-            : { kind: 'not_available' };
+          const service = await input.catalog.getService(req.tenantId, req.serviceId);
+          const professional = (await input.catalog.listProfessionals(req.tenantId, req.serviceId)).find((p) => p.id === req.professionalId);
+          if (!service || !professional) return { kind: 'not_available' };
+          return {
+            kind: 'booked',
+            appointment: {
+              id: 0,
+              serviceId: service.id,
+              serviceName: service.name,
+              professionalId: professional.id,
+              professionalName: professional.name,
+              startsAt: req.startsAt,
+              endsAt: new Date(req.startsAt.getTime() + service.durationMin * 60_000),
+            },
+          };
         },
+        reschedule: async () => ({ kind: 'not_found' }),
+        cancel: async () => ({ kind: 'not_found' }),
+        listUpcoming: async () => [],
         setReminderJob: async () => {},
-        cancelActive: async () => ({ kind: 'none' }),
-        getForReminder: async () => null,
-        markReminderSent: async () => true,
-        clearReminderSent: async () => {},
       },
     },
   }).map((tool) => ({
@@ -71,7 +82,7 @@ export async function testAgentAnswer(llm: LlmClient, input: SandboxInput): Prom
 
   const outcome = await runAgent(llm, {
     system: buildSystemPrompt({
-      academyName: input.academyName,
+      salonName: input.salonName,
       knowledge: { version: 0, items: input.items },
       now: input.now,
       timeZone: input.timeZone,

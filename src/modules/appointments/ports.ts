@@ -106,3 +106,9 @@ export interface AppointmentRepository {
   listUpcoming(tenantId: number, phone: string, now: Date): Promise<Appointment[]>;
   setReminderJob(appointmentId: number, jobId: string | null): Promise<void>;
 }
+
+export interface ReminderScheduler {
+  /** Agenda o lembrete; devolve o id do job para poder cancelar. */
+  schedule(appointmentId: number, at: Date): Promise<string>;
+  cancel(jobId: string): Promise<void>;
+}

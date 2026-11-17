@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   if (args['eval-dir']) {
     await mkdir(args['eval-dir'], { recursive: true });
     const base = {
-      academia: doc.academyName ?? 'Academia',
+      salao: doc.academyName ?? 'Salão',
       aviso: `Gerado de ${args.file} pelo importador.`,
       versao: 1,
       itens: doc.items.map((i) => ({ categoria: i.category, conteudo: i.content })),

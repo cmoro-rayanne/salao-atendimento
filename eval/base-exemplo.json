@@ -1,13 +1,12 @@
 {
-  "academia": "Academia Exemplo",
-  "aviso": "Base FICTÍCIA para avaliação. Troque pelos dados reais da Cia da Forma assim que a academia enviar.",
+  "salao": "Studio Aurora",
+  "aviso": "Base FICTÍCIA para avaliação. Troque pelos dados reais do salão cliente.",
   "versao": 1,
   "itens": [
     { "categoria": "Endereço", "conteudo": "Rua Exemplo, 100 - Centro, Curitiba/PR. Estacionamento conveniado na rua de trás." },
-    { "categoria": "Horários", "conteudo": "Academia: segunda a sexta 6h às 22h; sábado 8h às 14h; domingo fechado. Recepção: segunda a sexta 7h às 21h; sábado 8h às 13h." },
-    { "categoria": "Planos", "conteudo": "Mensal: R$ 149,90. Trimestral: R$ 399,90. Semestral: R$ 719,90. Matrícula isenta neste mês." },
-    { "categoria": "Modalidades", "conteudo": "Musculação (livre), funcional (seg/qua/sex 7h e 19h), pilates solo (ter/qui 8h e 18h), spinning (seg a sex 18h)." },
-    { "categoria": "Aula experimental", "conteudo": "Uma aula experimental gratuita por pessoa, em qualquer modalidade, com agendamento." },
-    { "categoria": "Regras", "conteudo": "Obrigatório toalha e calçado fechado. Avaliação física inclusa nos planos trimestral e semestral." }
+    { "categoria": "Horários", "conteudo": "Salão: terça a sábado, 9h às 19h; domingo e segunda fechado. Recepção: terça a sábado, 9h às 18h." },
+    { "categoria": "Pagamento", "conteudo": "Aceitamos Pix, cartão de débito e crédito (até 3x sem juros acima de R$ 150). Não aceitamos cheque." },
+    { "categoria": "Cancelamento e atraso", "conteudo": "Cancelamentos e remarcações com pelo menos 4 horas de antecedência. Tolerância de 15 minutos de atraso; depois disso o horário pode ser remarcado." },
+    { "categoria": "Cuidados", "conteudo": "Para coloração e química, recomendamos teste de mecha. Quem já teve alergia ou reação a produto deve avisar a equipe antes de agendar." }
   ]
 }
