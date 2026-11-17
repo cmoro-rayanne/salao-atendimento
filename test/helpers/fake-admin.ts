@@ -1,3 +1,4 @@
+import type { AgendaAdminRepository } from '../../src/modules/appointments/admin-ports.js';
 import { InMemoryAgenda } from '../../src/modules/appointments/in-memory.js';
 import { ScryptPasswordHasher } from '../../src/adapters/crypto/scrypt-hasher.js';
 import { SESSION_COOKIE, type AdminDeps } from '../../src/http/admin-routes.js';
@@ -11,7 +12,7 @@ import type { PanelBooking, TrialSlot } from '../../src/modules/trial-classes/po
 const hasher = new ScryptPasswordHasher();
 
 /** Painel com repositórios em memória, separados por academia (tenant). */
-export async function fakeAdmin() {
+export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
   const users: AdminUser[] = [
     { id: 1, tenantId: 1, email: 'dono@ciadaforma.com.br', passwordHash: await hasher.hash('senha-forte-123'), role: 'dono', mustChangePassword: false },
     { id: 2, tenantId: 2, email: 'dono@outra.com.br', passwordHash: await hasher.hash('outra-senha-123'), role: 'dono', mustChangePassword: false },
@@ -50,6 +51,7 @@ export async function fakeAdmin() {
     { tenantId: 2, id: 2, question: 'Tem crossfit?', conversationId: 88, createdAt: NOW, resolvedAt: null as Date | null },
   ];
 
+  const agendaMemory = new InMemoryAgenda();
   const deps: AdminDeps = {
     hasher,
     secureCookies: false,
@@ -185,7 +187,10 @@ export async function fakeAdmin() {
         };
       },
     },
-    catalog: new InMemoryAgenda(),
+    catalog: agendaMemory,
+    // Rotas de agenda são exercitadas contra o Postgres em test/integration/painel-salao.test.ts.
+    agendaAdmin: {} as AgendaAdminRepository,
+    agenda: { catalog: agendaMemory, appointments: agendaMemory, reminders: { schedule: async () => 'x', cancel: async () => {} }, now: () => NOW },
     slots: {
       list: async (tenantId) => [...slots.values()].filter((s) => s.tenantId === tenantId),
       create: async (tenantId, s) => {
@@ -208,6 +213,7 @@ export async function fakeAdmin() {
         return 'ok';
       },
     },
+    ...overrides,
   };
 
   const app = buildServer({

@@ -14,11 +14,13 @@ import {
   PgKnowledgeAdminRepository,
   PgTrialSlotRepository,
 } from './adapters/db/admin-repositories.js';
-import { PgCatalogRepository } from './adapters/db/agenda-repositories.js';
+import { PgAgendaAdminRepository } from './adapters/db/agenda-admin-repository.js';
+import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
 import { AnthropicLlmClient } from './adapters/llm/anthropic-client.js';
 import { PgProcessedEventStore } from './adapters/db/processed-event-store.js';
 import { createAlerts } from './adapters/alerts/create-alerts.js';
+import { BullAppointmentReminderScheduler } from './adapters/queue/appointment-reminder-queue.js';
 import { RedisLoginRateLimiter } from './adapters/queue/redis-auth.js';
 import { JwtSessionStore } from './adapters/auth/jwt-session.js';
 import { RedisConversationRateLimiter } from './adapters/queue/redis-rate-limiter.js';
@@ -35,6 +37,9 @@ const queue = new BullConversationQueue(redis);
 const tenants = new PgTenantRepository(sql);
 const sessionTtlSec = env.ADMIN_SESSION_TTL_HOURS * 60 * 60;
 const jwtSecret = new TextEncoder().encode(env.JWT_SECRET);
+
+const catalog = new PgCatalogRepository(sql);
+const appointmentReminders = new BullAppointmentReminderScheduler(redis);
 
 const alerts = createAlerts(env, redis, pino({ level: env.LOG_LEVEL }));
 
@@ -63,7 +68,9 @@ const app = buildServer({
     limiter: new RedisLoginRateLimiter(redis),
     knowledge: new PgKnowledgeAdminRepository(sql),
     slots: new PgTrialSlotRepository(sql),
-    catalog: new PgCatalogRepository(sql),
+    catalog,
+    agendaAdmin: new PgAgendaAdminRepository(sql),
+    agenda: { catalog, appointments: new PgAppointmentRepository(sql), reminders: appointmentReminders, now: () => new Date() },
     leads: new PgLeadAdminRepository(sql),
     settings: new PgTenantSettingsRepository(sql),
     unanswered: new PgUnansweredQuestionRepository(sql),
@@ -84,6 +91,7 @@ async function shutdown(signal: string): Promise<void> {
   app.log.info({ signal }, 'encerrando');
   await app.close();
   await queue.close();
+  await appointmentReminders.close();
   await redis.quit();
   await sql.end();
   process.exit(0);

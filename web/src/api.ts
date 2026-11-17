@@ -87,6 +87,59 @@ export interface Report {
   medianLatencyMs: number | null;
 }
 
+export interface SalonService {
+  id: number;
+  name: string;
+  description: string | null;
+  durationMin: number;
+  priceCents: number | null;
+  active: boolean;
+}
+export type ServiceInput = Omit<SalonService, 'id'>;
+
+export interface HoursBlock {
+  weekday: number;
+  startMin: number;
+  endMin: number;
+}
+export interface TimeOff {
+  id: number;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+}
+export interface Professional {
+  id: number;
+  name: string;
+  active: boolean;
+  serviceIds: number[];
+  hours: HoursBlock[];
+  timeOff: TimeOff[];
+}
+export type ProfessionalInput = Omit<Professional, 'id' | 'timeOff'>;
+
+export type AppointmentStatus = 'agendado' | 'cancelado' | 'concluido' | 'faltou';
+export interface Appointment {
+  id: number;
+  serviceId: number;
+  serviceName: string;
+  professionalId: number;
+  professionalName: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentStatus;
+  source: 'ia' | 'painel';
+  clientName: string | null;
+  clientPhone: string;
+  reminderSentAt: string | null;
+  chatwootConversationId: number | null;
+}
+export interface FreeSlot {
+  startsAt: string;
+  professionalId: number;
+  professionalName: string;
+}
+
 export interface KnowledgeItem {
   id?: number;
   category: string;
@@ -223,6 +276,32 @@ export const api = {
     ),
   setUnansweredResolved: (id: number, resolved: boolean) =>
     request<{ ok: true }>('PATCH', `/unanswered/${id}`, { resolved }),
+
+  listServices: () => request<{ services: SalonService[] }>('GET', '/services'),
+  createService: (input: ServiceInput) => request<SalonService>('POST', '/services', input),
+  updateService: (id: number, input: ServiceInput) => request<{ ok: true }>('PUT', `/services/${id}`, input),
+
+  listProfessionals: () => request<{ professionals: Professional[] }>('GET', '/professionals'),
+  createProfessional: (input: ProfessionalInput) => request<{ id: number }>('POST', '/professionals', input),
+  updateProfessional: (id: number, input: ProfessionalInput) => request<{ ok: true }>('PUT', `/professionals/${id}`, input),
+  addTimeOff: (id: number, startsAt: string, endsAt: string, reason: string | null) =>
+    request<{ id: number; affected: number }>('POST', `/professionals/${id}/time-off`, { startsAt, endsAt, reason }),
+  removeTimeOff: (id: number, timeOffId: number) => request<{ ok: true }>('DELETE', `/professionals/${id}/time-off/${timeOffId}`),
+
+  listAppointments: (from: Date, to: Date) =>
+    request<{ appointments: Appointment[] }>(
+      'GET',
+      `/appointments?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+    ),
+  freeSlots: (serviceId: number, day: string, professionalId?: number) =>
+    request<{ slots: FreeSlot[] }>('GET', `/free-slots?serviceId=${serviceId}&day=${day}${professionalId ? `&professionalId=${professionalId}` : ''}`),
+  createAppointment: (input: { serviceId: number; professionalId: number; startsAt: string; phone: string; name: string | null }) =>
+    request<{ id: number }>('POST', '/appointments', input),
+  setAppointmentStatus: (id: number, status: 'concluido' | 'faltou' | 'agendado') =>
+    request<{ ok: true }>('PATCH', `/appointments/${id}`, { status }),
+  rescheduleAppointment: (id: number, startsAt: string, professionalId?: number) =>
+    request<{ ok: true }>('POST', `/appointments/${id}/reschedule`, { startsAt, ...(professionalId ? { professionalId } : {}) }),
+  cancelAppointment: (id: number) => request<{ ok: true }>('DELETE', `/appointments/${id}`),
 
   report: (month?: string) => request<Report>('GET', `/report${month ? `?month=${month}` : ''}`),
 };

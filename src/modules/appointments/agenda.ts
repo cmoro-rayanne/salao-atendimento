@@ -106,7 +106,7 @@ export async function listMine(deps: AgendaDeps, ctx: ToolContext): Promise<stri
   return ['Agendamentos futuros:', ...list.map((a) => `agendamento_id ${a.id}: ${describe(a, ctx.timeZone)}`)].join('\n');
 }
 
-async function scheduleReminder(deps: AgendaDeps, a: Appointment, tz: string): Promise<void> {
+export async function scheduleReminder(deps: AgendaDeps, a: Appointment, tz: string): Promise<void> {
   const at = reminderTime(a.startsAt, tz, deps.now());
   if (!at) return;
   const jobId = await deps.reminders.schedule(a.id, at);

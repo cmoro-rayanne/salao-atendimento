@@ -47,7 +47,8 @@ export interface Appointment {
 
 export interface Contact {
   phone: string;
-  chatwootContactId: number;
+  /** Nulo quando a recepção agenda pelo painel. */
+  chatwootContactId: number | null;
   name: string | null;
 }
 

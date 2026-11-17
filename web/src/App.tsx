@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 import { api, type Me } from './api';
-import { BookingsPage } from './BookingsPage';
+import { AgendaPage } from './AgendaPage';
 import { KnowledgePage } from './KnowledgePage';
 import { LeadsPage } from './LeadsPage';
 import { LoginPage } from './LoginPage';
 import { PasswordPage } from './PasswordPage';
+import { ProfessionalsPage } from './ProfessionalsPage';
 import { ReportPage } from './ReportPage';
+import { ServicesPage } from './ServicesPage';
 import { SettingsPage } from './SettingsPage';
-import { SlotsPage } from './SlotsPage';
 
 const TABS = [
-  { id: 'leads', label: 'Leads' },
-  { id: 'aulas', label: 'Aulas agendadas' },
-  { id: 'grade', label: 'Grade da experimental' },
+  { id: 'agenda', label: 'Agenda' },
+  { id: 'servicos', label: 'Serviços' },
+  { id: 'profissionais', label: 'Profissionais' },
+  { id: 'leads', label: 'Clientes' },
   { id: 'base', label: 'O que a IA sabe' },
   { id: 'relatorio', label: 'Relatório' },
   { id: 'config', label: 'Configurações', ownerOnly: true },
@@ -22,7 +24,7 @@ type Tab = (typeof TABS)[number]['id'] | 'senha';
 function tabFromHash(): Tab {
   const id = location.hash.slice(1);
   if (id === 'senha') return 'senha';
-  return TABS.find((t) => t.id === id)?.id ?? 'leads';
+  return TABS.find((t) => t.id === id)?.id ?? 'agenda';
 }
 
 export function App() {
@@ -60,7 +62,7 @@ export function App() {
   }
 
   const tabs = TABS.filter((t) => !('ownerOnly' in t) || me.role === 'dono');
-  const current = tab === 'config' && me.role !== 'dono' ? 'leads' : tab;
+  const current = tab === 'config' && me.role !== 'dono' ? 'agenda' : tab;
 
   return (
     <div className="shell">
@@ -83,9 +85,10 @@ export function App() {
         </div>
       </header>
       <main>
+        {current === 'agenda' && <AgendaPage me={me} />}
+        {current === 'servicos' && <ServicesPage me={me} />}
+        {current === 'profissionais' && <ProfessionalsPage me={me} />}
         {current === 'leads' && <LeadsPage me={me} />}
-        {current === 'aulas' && <BookingsPage me={me} />}
-        {current === 'grade' && <SlotsPage />}
         {current === 'base' && <KnowledgePage me={me} />}
         {current === 'relatorio' && <ReportPage me={me} />}
         {current === 'config' && <SettingsPage />}

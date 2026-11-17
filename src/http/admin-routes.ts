@@ -10,7 +10,10 @@ import {
   resetTeamMemberPassword,
 } from '../modules/auth/manage-users.js';
 import type { LlmClient } from '../modules/agent/ports.js';
+import type { AgendaAdminRepository } from '../modules/appointments/admin-ports.js';
+import type { AgendaDeps } from '../modules/appointments/agenda.js';
 import type { CatalogRepository } from '../modules/appointments/ports.js';
+import { agendaRoutes } from './agenda-routes.js';
 import { testAgentAnswer } from '../modules/agent/sandbox.js';
 import type { UnansweredQuestionRepository } from '../modules/handoff/ports.js';
 import { parseKnowledgeDoc } from '../modules/knowledge/import-doc.js';
@@ -32,6 +35,8 @@ export interface AdminDeps extends LoginDeps {
   knowledge: KnowledgeAdminRepository;
   slots: TrialSlotRepository;
   catalog: CatalogRepository;
+  agendaAdmin: AgendaAdminRepository;
+  agenda: AgendaDeps;
   leads: LeadAdminRepository;
   settings: TenantSettingsRepository;
   unanswered: UnansweredQuestionRepository;
@@ -145,9 +150,15 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
 
     const ownerOnly = async (req: FastifyRequest, reply: FastifyReply) => {
       if (req.adminSession?.role !== 'dono') {
-        return reply.code(403).send({ error: 'Só o dono da academia pode fazer isso.' });
+        return reply.code(403).send({ error: 'Só o dono do salão pode fazer isso.' });
       }
     };
+
+    agendaRoutes(
+      auth,
+      { agenda: deps.agenda, admin: deps.agendaAdmin, tenantTimeZone: async (id) => (await deps.tenantInfo(id)).timeZone },
+      ownerOnly,
+    );
 
     auth.post('/auth/password', async (req, reply) => {
       const body = PasswordBody.safeParse(req.body);
@@ -216,7 +227,7 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
       if (!params.success) return badRequest(reply, 'Usuário inválido.');
       const result = await removeTeamMember(deps, req.adminSession!, params.data.id);
       if (result === 'self') return badRequest(reply, 'Você não pode remover o próprio acesso.');
-      if (result === 'last_owner') return reply.code(409).send({ error: 'A academia precisa de pelo menos um dono.' });
+      if (result === 'last_owner') return reply.code(409).send({ error: 'O salão precisa de pelo menos um dono.' });
       if (result === 'not_found') return reply.code(404).send({ error: 'Usuário não encontrado.' });
       return { ok: true };
     });

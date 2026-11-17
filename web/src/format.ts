@@ -24,3 +24,33 @@ export function monthBounds(offset = 0): { from: Date; to: Date } {
     to: new Date(now.getFullYear(), now.getMonth() + offset + 1, 1),
   };
 }
+
+/** Data ("2026-11-17") e hora ("09:30") do salão → instante ISO. Usa o fuso do salão, não o do navegador. */
+export function salonTimeToIso(date: string, time: string, timeZone: string): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const [hh, mm] = time.split(':').map(Number) as [number, number];
+  const asUtc = Date.UTC(y, m - 1, d, hh, mm);
+  const offsetAt = (ms: number) => {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+      })
+        .formatToParts(new Date(ms))
+        .map((x) => [x.type, Number(x.value)]),
+    ) as Record<string, number>;
+    return Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!, p.second!) - ms;
+  };
+  const guess = asUtc - offsetAt(asUtc);
+  return new Date(asUtc - offsetAt(guess)).toISOString();
+}
+
+/** "2026-11-17" de hoje (ou de `ms`) no fuso do salão. */
+export function salonDay(timeZone: string | undefined, ms = Date.now()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(ms));
+}
+
+export const minutesToTime = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+export const timeToMinutes = (t: string) => {
+  const [h, m] = t.split(':').map(Number) as [number, number];
+  return h * 60 + m;
+};

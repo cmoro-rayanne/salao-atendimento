@@ -110,7 +110,7 @@ export class PgAppointmentRepository implements AppointmentRepository {
           insert into leads (tenant_id, phone, chatwoot_contact_id, name)
           values (${req.tenantId}, ${req.contact.phone}, ${req.contact.chatwootContactId}, ${req.contact.name})
           on conflict (tenant_id, phone) do update set
-            chatwoot_contact_id = excluded.chatwoot_contact_id,
+            chatwoot_contact_id = coalesce(excluded.chatwoot_contact_id, leads.chatwoot_contact_id),
             name = coalesce(leads.name, excluded.name),
             updated_at = now()
           returning id

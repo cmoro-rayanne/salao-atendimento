@@ -60,7 +60,7 @@ estético, transfere para humano em reclamação ou alergia/reação). Base de e
 2. ~~Migration, repositórios Postgres e testes de integração (inclui concorrência na mesma vaga).~~ Feito (`PgAppointmentRepository`, `PgCatalogRepository`).
 3. ~~Comandos/queries + ferramentas da IA + prompt + eval do salão.~~ Feito, **exceto rodar `npm run eval`** (precisa de `LLM_API_KEY`; casos e base do Studio Aurora já escritos). 
 4. ~~Lembrete (fila) e relatório.~~ Feito: fila `appointment-reminder` + worker com DLQ, template `lembrete_agendamento` na Meta (`{{1}}` nome, `{{2}}` serviço, `{{3}}` profissional, `{{4}}` data e hora; env `APPOINTMENT_REMINDER_TEMPLATE_NAME`), relatório com agendamentos, faltas, cancelados e serviços mais pedidos. **Antes de usar em produção: cadastrar e aprovar o template na Meta.**
-5. Painel: serviços, profissionais, agenda.
+5. ~~Painel: serviços, profissionais, agenda.~~ Feito: abas Agenda (dia, filtro por profissional, agendar, remarcar, cancelar, veio/faltou), Serviços e Profissionais (serviços que faz, expediente, folgas). Cadastro de serviço/profissional é só do dono; a recepção usa a agenda e registra folgas. Agendamento feito pela recepção não tem conversa do WhatsApp, então não gera lembrete.
 6. Limpeza do código da academia (trial) e base de exemplo.
 
 ## Critérios de aceite
