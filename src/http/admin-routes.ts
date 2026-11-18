@@ -85,6 +85,7 @@ const SettingsBody = z.object({
   timeZone: z.string().max(60),
   receptionHours: z.object({ open: z.number(), close: z.number() }).nullable(),
   privacyUrl: z.string().max(500).nullable(),
+  lateToleranceMin: z.number().max(1000),
 });
 const NewUserBody = z.object({ email: z.string().max(200), role: z.enum(['dono', 'recepcao']) });
 const ResolvedBody = z.object({ resolved: z.boolean() });

@@ -176,6 +176,7 @@ export interface Settings {
   timeZone: string;
   receptionHours: { open: number; close: number } | null;
   privacyUrl: string | null;
+  lateToleranceMin: number;
 }
 export interface TeamMember {
   id: number;

@@ -298,9 +298,6 @@ export async function cancelAppointment(deps: AgendaDeps, ctx: ToolContext, appo
 }
 
 export const CLIENT_DELAY_MAX_MIN = 60;
-/** Tolerância do salão: até aqui o horário da cliente é mantido; acima, a IA propõe remarcar e a equipe decide. */
-export const CLIENT_DELAY_TOLERANCE_MIN = 15;
-
 /** Command: a cliente avisa que vai se atrasar. Registra, avisa a equipe e não mexe na agenda. */
 export async function reportClientDelay(
   deps: AgendaDeps,
@@ -312,6 +309,7 @@ export async function reportClientDelay(
     return `Atraso acima de ${CLIENT_DELAY_MAX_MIN} minutos: ofereça remarcar (consultar_horarios e remarcar_agendamento) ou transfira para a equipe.`;
   }
   const now = deps.now();
+  const tolerance = (await deps.catalog.settings(ctx.tenantId)).lateToleranceMin;
   const mine = await deps.appointments.listUpcoming(ctx.tenantId, ctx.contact.phone, new Date(now.getTime() - 30 * 60_000));
   const a = mine.find((x) => x.id === input.appointmentId);
   if (!a) return 'Agendamento não encontrado entre os da pessoa. Use meus_agendamentos.';
@@ -324,11 +322,11 @@ export async function reportClientDelay(
     await deps.inbox.addPrivateNote(
       ctx.accountId,
       ctx.conversationId,
-      `Cliente avisou atraso: ${describe(a, ctx.timeZone)} (agendamento ${a.id}). Atraso de ${input.delayMin} min, chega por volta das ${expected} (${input.delayMin <= CLIENT_DELAY_TOLERANCE_MIN ? `dentro da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min, horário mantido` : `passa da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min, a equipe decide`}).`,
+      `Cliente avisou atraso: ${describe(a, ctx.timeZone)} (agendamento ${a.id}). Atraso de ${input.delayMin} min, chega por volta das ${expected} (${input.delayMin <= tolerance ? `dentro da tolerância de ${tolerance} min, horário mantido` : `passa da tolerância de ${tolerance} min, a equipe decide`}).`,
     );
   }
-  if (input.delayMin <= CLIENT_DELAY_TOLERANCE_MIN) {
-    return `Atraso de ${input.delayMin} min registrado, dentro da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min: o horário está mantido e a equipe foi avisada (chegada prevista ${expected}). Diga que o horário está mantido e que ela pode vir com calma, sem passar de ${CLIENT_DELAY_TOLERANCE_MIN} minutos.`;
+  if (input.delayMin <= tolerance) {
+    return `Atraso de ${input.delayMin} min registrado, dentro da tolerância do salão (${tolerance} min): o horário está mantido e a equipe foi avisada (chegada prevista ${expected}). Diga que o horário está mantido e que ela pode vir com calma, sem passar de ${tolerance} minutos.`;
   }
-  return `Atraso de ${input.delayMin} min registrado e a equipe foi avisada, mas passa da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min. Não prometa manter o horário: explique que a equipe vai avaliar se consegue atender e pergunte se ela prefere remarcar (consultar_horarios e remarcar_agendamento).`;
+  return `Atraso de ${input.delayMin} min registrado e a equipe foi avisada, mas passa da tolerância de ${tolerance} min. Não prometa manter o horário: explique que a equipe vai avaliar se consegue atender e pergunte se ela prefere remarcar (consultar_horarios e remarcar_agendamento).`;
 }

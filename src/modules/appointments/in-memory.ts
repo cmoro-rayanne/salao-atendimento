@@ -57,7 +57,7 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository,
   optedOut = new Set<string>();
 
   constructor(
-    public config: AgendaSettings = { timeZone: 'America/Sao_Paulo', slotStepMin: 30, minNoticeMin: 60, maxDaysAhead: 30 },
+    public config: AgendaSettings = { timeZone: 'America/Sao_Paulo', slotStepMin: 30, minNoticeMin: 60, maxDaysAhead: 30, lateToleranceMin: 15 },
   ) {}
 
   addService(s: Omit<SalonService, 'id' | 'description'> & { description?: string | null }): SalonService {

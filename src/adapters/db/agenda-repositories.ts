@@ -41,11 +41,15 @@ export class PgCatalogRepository implements CatalogRepository {
   constructor(private readonly sql: Sql) {}
 
   async settings(tenantId: number): Promise<AgendaSettings> {
-    const [t] = await this.sql<{ time_zone: string; slot_step_min: number; min_notice_min: number; max_days_ahead: number }[]>`
-      select time_zone, slot_step_min, min_notice_min, max_days_ahead from tenants where id = ${tenantId}
+    const [t] = await this.sql<
+      { time_zone: string; slot_step_min: number; min_notice_min: number; max_days_ahead: number; late_tolerance_min: number }[]
+    >`
+      select time_zone, slot_step_min, min_notice_min, max_days_ahead, late_tolerance_min from tenants where id = ${tenantId}
     `;
     if (!t) throw new Error(`tenant ${tenantId} não existe`);
-    return { timeZone: t.time_zone, slotStepMin: t.slot_step_min, minNoticeMin: t.min_notice_min, maxDaysAhead: t.max_days_ahead };
+    return { timeZone: t.time_zone, slotStepMin: t.slot_step_min, minNoticeMin: t.min_notice_min, maxDaysAhead: t.max_days_ahead,
+      lateToleranceMin: t.late_tolerance_min,
+    };
   }
 
   async listServices(tenantId: number): Promise<SalonService[]> {

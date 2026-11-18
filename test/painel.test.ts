@@ -205,22 +205,25 @@ describe('configurações e equipe (só dono)', () => {
       method: 'PUT',
       url: '/admin/api/settings',
       headers: { cookie },
-      payload: { name: ' Studio Aurora ', timeZone: 'America/Sao_Paulo', receptionHours: { open: 7, close: 21 }, privacyUrl: 'https://aurora.com.br/privacidade' },
+      payload: { name: ' Studio Aurora ', timeZone: 'America/Sao_Paulo', receptionHours: { open: 7, close: 21 }, privacyUrl: 'https://aurora.com.br/privacidade', lateToleranceMin: 10 },
     });
     expect(ok.json()).toEqual({ ok: true });
-    expect(getSettings()).toMatchObject({ name: 'Studio Aurora', receptionHours: { open: 7, close: 21 } });
+    expect(getSettings()).toMatchObject({ name: 'Studio Aurora', receptionHours: { open: 7, close: 21 }, lateToleranceMin: 10 });
 
     for (const bad of [
       { receptionHours: { open: 21, close: 7 } },
       { privacyUrl: 'http://inseguro.com' },
       { timeZone: 'Europe/Lisbon' },
       { name: 'x' },
+      { lateToleranceMin: 61 },
+      { lateToleranceMin: -1 },
+      { lateToleranceMin: 7.5 },
     ]) {
       const res = await app.inject({
         method: 'PUT',
         url: '/admin/api/settings',
         headers: { cookie },
-        payload: { name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', receptionHours: null, privacyUrl: null, ...bad },
+        payload: { name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', receptionHours: null, privacyUrl: null, lateToleranceMin: 15, ...bad },
       });
       expect(res.statusCode, JSON.stringify(bad)).toBe(400);
     }

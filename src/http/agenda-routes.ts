@@ -1,7 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { HoursBlock } from '../modules/appointments/admin-ports.js';
-import { CLIENT_DELAY_TOLERANCE_MIN } from '../modules/appointments/agenda.js';
 import { delayStatus, requestDelayNotice, MAX_DELAY_MIN, MIN_DELAY_MIN } from '../modules/appointments/delay-notice.js';
 import type { ClientDelayRepository, DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
 import { normalizePhone, panelBook, panelCancel, panelFreeSlots, panelReschedule, type PanelAgendaDeps } from '../modules/appointments/panel.js';
@@ -145,6 +144,7 @@ export function agendaRoutes(
     if (!q.success) return bad(reply, 'Informe o período (from, to).');
     const list = await deps.admin.listAppointments(tenantOf(req), new Date(q.data.from), new Date(q.data.to));
     const ids = list.map((a) => a.id);
+    const tolerance = (await deps.agenda.catalog.settings(tenantOf(req))).lateToleranceMin;
     const [sent, reported] = deps.delayNotice
       ? await Promise.all([deps.delayNotice.notices.latestSent(ids), deps.delayNotice.clientReports.latest(ids)])
       : [[], []];
@@ -169,7 +169,7 @@ export function agendaRoutes(
               delayMin: r.delayMin,
               reportedAt: r.reportedAt,
               expectedAt: new Date(a.startsAt.getTime() + r.delayMin * 60_000),
-              withinTolerance: r.delayMin <= CLIENT_DELAY_TOLERANCE_MIN,
+              withinTolerance: r.delayMin <= tolerance,
             },
           }),
         };

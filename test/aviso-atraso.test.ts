@@ -223,7 +223,7 @@ describe('cliente avisa o próprio atraso (IA)', () => {
 
   it('até 15 min: registra, avisa a equipe e mantém o horário', async () => {
     const text = await report(10);
-    expect(text).toContain('dentro da tolerância de 15 min');
+    expect(text).toContain('dentro da tolerância do salão (15 min)');
     expect(text).toContain('mantido');
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain('10 min');
@@ -232,8 +232,18 @@ describe('cliente avisa o próprio atraso (IA)', () => {
     expect(agenda.stored[0]!.startsAt).toEqual(new Date('2026-11-17T10:00:00-03:00'));
   });
 
-  it('exatamente 15 min ainda é tolerado; 16 não', async () => {
-    expect(await report(15)).toContain('dentro da tolerância');
+  it('usa a tolerância configurada pelo salão', async () => {
+    agenda.config.lateToleranceMin = 5;
+    expect(await report(5)).toContain('dentro da tolerância do salão (5 min)');
+    expect(await report(10)).toContain('passa da tolerância de 5 min');
+    agenda.config.lateToleranceMin = 30;
+    expect(await report(25)).toContain('dentro da tolerância do salão (30 min)');
+    agenda.config.lateToleranceMin = 0;
+    expect(await report(5)).toContain('passa da tolerância de 0 min');
+  });
+
+  it('exatamente 15 min (padrão) ainda é tolerado; 16 não', async () => {
+    expect(await report(15)).toContain('dentro da tolerância do salão');
     const text = await report(16);
     expect(text).toContain('passa da tolerância');
     expect(text).toContain('Não prometa manter');

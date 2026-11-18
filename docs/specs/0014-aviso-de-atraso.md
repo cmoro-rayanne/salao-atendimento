@@ -10,10 +10,9 @@ O aviso vale nos dois sentidos (confirmado pela Ray):
 2. **Cliente → salão:** a cliente diz no WhatsApp que vai se atrasar. A IA usa `avisar_atraso_cliente(agendamento_id, minutos)`,
    que grava em `client_delay_reports` (migration 013, `UNIQUE (appointment_id, delay_min)`), deixa uma nota privada para a equipe
    no Chatwoot e mostra o aviso na agenda do painel.
-   - **Tolerância de 15 minutos** (constante `CLIENT_DELAY_TOLERANCE_MIN`): até 15 min o horário é mantido e a IA confirma isso à cliente.
-     Acima de 15 min a IA não promete nada, diz que a equipe vai avaliar e oferece remarcar. Acima de 60 min não registra e propõe remarcar.
+   - **Tolerância configurável pela dona em Configurações** (`tenants.late_tolerance_min`, migration 014; padrão 15, de 0 a 60 min): até esse tempo o horário é mantido e a IA confirma isso à cliente.
+     Acima da tolerância a IA não promete nada, diz que a equipe vai avaliar e oferece remarcar. Acima de 60 min não registra e propõe remarcar.
    - Só vale para agendamentos da própria pessoa que começam de 30 min atrás a 6 h à frente. Não altera o agendamento.
-   - A tolerância fixa em 15 min vale para todos os salões; torná-la configurável por salão fica para uma próxima entrega.
 
 ## Decisões
 - **Disparo manual, por agendamento.** Botão "Avisar atraso" na agenda do painel, com os minutos de atraso (5 a 120). Dono e recepção podem.

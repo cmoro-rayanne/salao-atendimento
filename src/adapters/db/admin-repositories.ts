@@ -194,14 +194,14 @@ export class PgTenantSettingsRepository implements TenantSettingsRepository {
   constructor(private readonly sql: Sql) {}
 
   async get(tenantId: number): Promise<TenantSettings> {
-    const [row] = await this.sql<{ name: string; time_zone: string; reception_hours: unknown; privacy_url: string | null }[]>`
-      select name, time_zone, reception_hours, privacy_url from tenants where id = ${tenantId}
+    const [row] = await this.sql<{ name: string; time_zone: string; reception_hours: unknown; privacy_url: string | null; late_tolerance_min: number }[]>`
+      select name, time_zone, reception_hours, privacy_url, late_tolerance_min from tenants where id = ${tenantId}
     `;
     if (!row) throw new Error(`tenant ${tenantId} não existe`);
     const rh = row.reception_hours as { open?: unknown; close?: unknown } | null;
     const receptionHours =
       rh && typeof rh.open === 'number' && typeof rh.close === 'number' ? { open: rh.open, close: rh.close } : null;
-    return { name: row.name, timeZone: row.time_zone, receptionHours, privacyUrl: row.privacy_url };
+    return { name: row.name, timeZone: row.time_zone, receptionHours, privacyUrl: row.privacy_url, lateToleranceMin: row.late_tolerance_min };
   }
 
   async save(tenantId: number, s: TenantSettings): Promise<void> {
@@ -210,7 +210,8 @@ export class PgTenantSettingsRepository implements TenantSettingsRepository {
         name = ${s.name},
         time_zone = ${s.timeZone},
         reception_hours = ${this.sql.json(s.receptionHours ?? {})},
-        privacy_url = ${s.privacyUrl}
+        privacy_url = ${s.privacyUrl},
+        late_tolerance_min = ${s.lateToleranceMin}
       where id = ${tenantId}
     `;
   }

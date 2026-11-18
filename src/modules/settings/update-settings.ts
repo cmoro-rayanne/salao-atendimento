@@ -34,6 +34,10 @@ export async function updateSettings(
     if (!valid || rh.open >= rh.close) return { ok: false, error: 'O horário da recepção precisa abrir antes de fechar (0h a 24h).' };
   }
 
+  if (!Number.isInteger(input.lateToleranceMin) || input.lateToleranceMin < 0 || input.lateToleranceMin > 60) {
+    return { ok: false, error: 'A tolerância de atraso precisa ficar entre 0 e 60 minutos.' };
+  }
+
   let privacyUrl: string | null = input.privacyUrl?.trim() || null;
   if (privacyUrl) {
     try {
@@ -45,6 +49,6 @@ export async function updateSettings(
     }
   }
 
-  await repo.save(tenantId, { name, timeZone: input.timeZone, receptionHours: rh, privacyUrl });
+  await repo.save(tenantId, { name, timeZone: input.timeZone, receptionHours: rh, privacyUrl, lateToleranceMin: input.lateToleranceMin });
   return { ok: true };
 }

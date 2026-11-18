@@ -20,6 +20,8 @@ export interface AgendaSettings {
   slotStepMin: number;
   minNoticeMin: number;
   maxDaysAhead: number;
+  /** Minutos de atraso da cliente que o salão tolera sem perder o horário (0 = nenhum). */
+  lateToleranceMin: number;
 }
 
 /** Cadastro do salão (lado da IA: só leitura). */

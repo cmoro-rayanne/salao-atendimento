@@ -18,7 +18,7 @@ export async function fakeAdmin(overrides: Partial<AdminDeps> = {}) {
     { id: 3, tenantId: 1, email: 'recepcao@aurora.com.br', passwordHash: await hasher.hash('recepcao-123456'), role: 'recepcao', mustChangePassword: false },
   ];
   const sessions = new Map<string, AdminSession>();
-  let settings = { name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', receptionHours: null as { open: number; close: number } | null, privacyUrl: null as string | null };
+  let settings = { name: 'Studio Aurora', timeZone: 'America/Sao_Paulo', receptionHours: null as { open: number; close: number } | null, privacyUrl: null as string | null, lateToleranceMin: 15 };
   const attempts = new Map<string, number>();
   const versions: Array<{
     tenantId: number;

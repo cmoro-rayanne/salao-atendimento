@@ -56,10 +56,10 @@ describe.skipIf(!dbUrl)('painel no Postgres', () => {
 
   it('configurações: salva e lê de volta', async () => {
     const repo = new PgTenantSettingsRepository(sql);
-    await repo.save(t1, { name: 'Cia', timeZone: 'America/Manaus', receptionHours: { open: 6, close: 22 }, privacyUrl: 'https://x.com/p' });
-    expect(await repo.get(t1)).toEqual({ name: 'Cia', timeZone: 'America/Manaus', receptionHours: { open: 6, close: 22 }, privacyUrl: 'https://x.com/p' });
-    await repo.save(t1, { name: 'Cia', timeZone: 'America/Sao_Paulo', receptionHours: null, privacyUrl: null });
-    expect(await repo.get(t1)).toMatchObject({ receptionHours: null, privacyUrl: null });
+    await repo.save(t1, { name: 'Cia', timeZone: 'America/Manaus', receptionHours: { open: 6, close: 22 }, privacyUrl: 'https://x.com/p', lateToleranceMin: 10 });
+    expect(await repo.get(t1)).toEqual({ name: 'Cia', timeZone: 'America/Manaus', receptionHours: { open: 6, close: 22 }, privacyUrl: 'https://x.com/p', lateToleranceMin: 10 });
+    await repo.save(t1, { name: 'Cia', timeZone: 'America/Sao_Paulo', receptionHours: null, privacyUrl: null, lateToleranceMin: 0 });
+    expect(await repo.get(t1)).toMatchObject({ receptionHours: null, privacyUrl: null, lateToleranceMin: 0 });
   });
 
   it('base: troca tudo, incrementa a versão e a IA passa a ler a nova', async () => {

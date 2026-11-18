@@ -60,7 +60,7 @@ describe('parseKnowledgeDoc', () => {
 
 function fakeDeps(initialItems: EditableKnowledgeItem[] = []) {
   let kb = { version: 3, items: initialItems };
-  let settings: TenantSettings = { name: 'Cia', timeZone: TZ, receptionHours: null, privacyUrl: null };
+  let settings: TenantSettings = { name: 'Cia', timeZone: TZ, receptionHours: null, privacyUrl: null, lateToleranceMin: 15 };
   const deps: ImportDeps = {
     knowledge: {
       getForEdit: async () => kb,

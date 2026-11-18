@@ -111,6 +111,22 @@ function AcademySettings() {
           )}
         </fieldset>
         <label>
+          Tolerância de atraso da cliente (minutos)
+          <input
+            type="number"
+            min={0}
+            max={60}
+            step={5}
+            value={form.lateToleranceMin}
+            onChange={(e) => set({ lateToleranceMin: Number(e.target.value) })}
+            aria-describedby="tolerance-hint"
+          />
+        </label>
+        <p id="tolerance-hint" className="hint small">
+          Quando a cliente avisa pelo WhatsApp que vai atrasar até esse tempo, a IA confirma que o horário está mantido. Acima disso, a IA
+          avisa a equipe e oferece remarcar. Use 0 para não ter tolerância.
+        </p>
+        <label>
           Link da política de privacidade
           <input
             type="url"
