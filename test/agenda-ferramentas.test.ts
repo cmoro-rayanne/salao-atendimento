@@ -244,6 +244,7 @@ describe('ferramentas do agente', () => {
       'consultar_horarios',
       'meus_agendamentos',
     'confirmar_chegada_atrasada',
+    'avisar_atraso_cliente',
       'agendar_servico',
       'remarcar_agendamento',
       'cancelar_agendamento',

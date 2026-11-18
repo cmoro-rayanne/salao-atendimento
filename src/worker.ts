@@ -5,7 +5,7 @@ import { ChatwootClient } from './adapters/chatwoot/chatwoot-client.js';
 import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY, DEFAULT_DELAY_NOTICE_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
-import { PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
+import { PgClientDelayRepository, PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
 import {
   PgAgentRunRepository,
   PgHandoffRepository,
@@ -72,7 +72,7 @@ const deps: ReplyDeps = {
   lock: new RedisConversationLock(redis),
   leads: new PgLeadRepository(sql),
   handoff: { inbox: chatwoot, handoffs: new PgHandoffRepository(sql) },
-  agenda: { catalog: new PgCatalogRepository(sql), appointments: appointmentRepo, reminders: appointmentReminders, delayNotices, now },
+  agenda: { catalog: new PgCatalogRepository(sql), appointments: appointmentRepo, reminders: appointmentReminders, delayNotices, clientDelays: new PgClientDelayRepository(sql), inbox: chatwoot, now },
 };
 
 const worker = new Worker<ReplyJob>(

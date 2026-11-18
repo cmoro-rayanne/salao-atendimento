@@ -7,6 +7,7 @@ import type {
   Appointment,
   AppointmentRepository,
   CatalogRepository,
+  ClientDelayRepository,
   DelayNoticeRepository,
   ReminderScheduler,
   SalonService,
@@ -23,6 +24,9 @@ export interface AgendaDeps {
   reminders: ReminderScheduler;
   /** Avisos de atraso (spec 0014). Sem isso, a IA ignora o assunto. */
   delayNotices?: Pick<DelayNoticeRepository, 'latestSent' | 'confirmLatest'>;
+  /** Atraso informado pela cliente (spec 0014, parte 2): grava e avisa a equipe numa nota privada. */
+  clientDelays?: Pick<ClientDelayRepository, 'record'>;
+  inbox?: { addPrivateNote(accountId: number, conversationId: number, note: string): Promise<void> };
   now: () => Date;
 }
 
@@ -291,4 +295,40 @@ export async function cancelAppointment(deps: AgendaDeps, ctx: ToolContext, appo
   if (result.kind === 'not_found') return 'Não encontrei esse agendamento futuro para a pessoa. Use meus_agendamentos para ver os ids.';
   if (result.reminderJobId) await deps.reminders.cancel(result.reminderJobId);
   return `Cancelado: ${describe(result.appointment, ctx.timeZone)}. O horário foi liberado.`;
+}
+
+export const CLIENT_DELAY_MAX_MIN = 60;
+/** Tolerância do salão: até aqui o horário da cliente é mantido; acima, a IA propõe remarcar e a equipe decide. */
+export const CLIENT_DELAY_TOLERANCE_MIN = 15;
+
+/** Command: a cliente avisa que vai se atrasar. Registra, avisa a equipe e não mexe na agenda. */
+export async function reportClientDelay(
+  deps: AgendaDeps,
+  ctx: ToolContext,
+  input: { appointmentId: number; delayMin: number },
+): Promise<string> {
+  if (!deps.clientDelays || !ctx.contact.phone) return 'Não foi possível registrar o atraso. Transfira para a equipe.';
+  if (input.delayMin < 5 || input.delayMin > CLIENT_DELAY_MAX_MIN) {
+    return `Atraso acima de ${CLIENT_DELAY_MAX_MIN} minutos: ofereça remarcar (consultar_horarios e remarcar_agendamento) ou transfira para a equipe.`;
+  }
+  const now = deps.now();
+  const mine = await deps.appointments.listUpcoming(ctx.tenantId, ctx.contact.phone, new Date(now.getTime() - 30 * 60_000));
+  const a = mine.find((x) => x.id === input.appointmentId);
+  if (!a) return 'Agendamento não encontrado entre os da pessoa. Use meus_agendamentos.';
+  const untilStart = a.startsAt.getTime() - now.getTime();
+  if (untilStart > 6 * 3_600_000) return 'Esse agendamento ainda está longe. Não precisa avisar atraso agora.';
+
+  const expected = clock(new Date(a.startsAt.getTime() + input.delayMin * 60_000), ctx.timeZone);
+  const fresh = await deps.clientDelays.record(ctx.tenantId, a.id, input.delayMin, now);
+  if (fresh && deps.inbox) {
+    await deps.inbox.addPrivateNote(
+      ctx.accountId,
+      ctx.conversationId,
+      `Cliente avisou atraso: ${describe(a, ctx.timeZone)} (agendamento ${a.id}). Atraso de ${input.delayMin} min, chega por volta das ${expected} (${input.delayMin <= CLIENT_DELAY_TOLERANCE_MIN ? `dentro da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min, horário mantido` : `passa da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min, a equipe decide`}).`,
+    );
+  }
+  if (input.delayMin <= CLIENT_DELAY_TOLERANCE_MIN) {
+    return `Atraso de ${input.delayMin} min registrado, dentro da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min: o horário está mantido e a equipe foi avisada (chegada prevista ${expected}). Diga que o horário está mantido e que ela pode vir com calma, sem passar de ${CLIENT_DELAY_TOLERANCE_MIN} minutos.`;
+  }
+  return `Atraso de ${input.delayMin} min registrado e a equipe foi avisada, mas passa da tolerância de ${CLIENT_DELAY_TOLERANCE_MIN} min. Não prometa manter o horário: explique que a equipe vai avaliar se consegue atender e pergunte se ela prefere remarcar (consultar_horarios e remarcar_agendamento).`;
 }

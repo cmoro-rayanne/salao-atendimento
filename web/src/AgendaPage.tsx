@@ -269,6 +269,12 @@ export function AgendaPage({ me }: { me: Me }) {
             Abrir conversa
           </a>
         )}
+        {a.clientDelay && (
+          <span className="sub">
+            Cliente avisou atraso de {a.clientDelay.delayMin} min (chega por volta das {time(a.clientDelay.expectedAt, tz)}
+            {a.clientDelay.withinTolerance ? ', dentro da tolerância)' : ', passa da tolerância: veja se atende ou remarque)'}
+          </span>
+        )}
         {delayText && <span className="sub">{delayText}</span>}
         {delaying === a.id && (
           <div className="move-panel">

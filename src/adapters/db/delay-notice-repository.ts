@@ -1,4 +1,6 @@
 import type {
+  ClientDelayReport,
+  ClientDelayRepository,
   DelayNoticeInfo,
   DelayNoticeRepository,
   DelayNoticeSummary,
@@ -101,5 +103,30 @@ export class PgDelayNoticeRepository implements DelayNoticeRepository {
       returning id
     `;
     return rows.length === 1;
+  }
+}
+
+export class PgClientDelayRepository implements ClientDelayRepository {
+  constructor(private readonly sql: Sql) {}
+
+  async record(tenantId: number, appointmentId: number, delayMin: number, now: Date): Promise<boolean> {
+    const rows = await this.sql`
+      insert into client_delay_reports (tenant_id, appointment_id, delay_min, created_at)
+      values (${tenantId}, ${appointmentId}, ${delayMin}, ${now})
+      on conflict on constraint client_delay_reports_once do nothing
+      returning id
+    `;
+    return rows.length === 1;
+  }
+
+  async latest(appointmentIds: number[]): Promise<ClientDelayReport[]> {
+    if (!appointmentIds.length) return [];
+    const rows = await this.sql<{ appointment_id: string; delay_min: number; created_at: Date }[]>`
+      select distinct on (appointment_id) appointment_id, delay_min, created_at
+      from client_delay_reports
+      where appointment_id in ${this.sql(appointmentIds)}
+      order by appointment_id, id desc
+    `;
+    return rows.map((r) => ({ appointmentId: Number(r.appointment_id), delayMin: r.delay_min, reportedAt: r.created_at }));
   }
 }

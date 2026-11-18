@@ -15,7 +15,7 @@ import {
 import { PgAgendaAdminRepository } from './adapters/db/agenda-admin-repository.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
-import { PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
+import { PgClientDelayRepository, PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
 import { BullDelayNoticeScheduler } from './adapters/queue/delay-notice-queue.js';
 import { AnthropicLlmClient } from './adapters/llm/anthropic-client.js';
 import { PgProcessedEventStore } from './adapters/db/processed-event-store.js';
@@ -72,7 +72,7 @@ const app = buildServer({
     catalog,
     agendaAdmin: new PgAgendaAdminRepository(sql),
     agenda: { catalog, appointments: new PgAppointmentRepository(sql), reminders: appointmentReminders, delayNotices, now: () => new Date() },
-    delayNotice: { notices: delayNotices, scheduler: delayNoticeQueue },
+    delayNotice: { notices: delayNotices, scheduler: delayNoticeQueue, clientReports: new PgClientDelayRepository(sql) },
     clients: new PgClientAdminRepository(sql),
     settings: new PgTenantSettingsRepository(sql),
     unanswered: new PgUnansweredQuestionRepository(sql),

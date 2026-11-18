@@ -118,6 +118,8 @@ export interface Appointment {
   reminderSentAt: string | null;
   chatwootConversationId: number | null;
   /** Último aviso de atraso enviado (spec 0014). */
+  /** A cliente avisou que vai atrasar (WhatsApp). */
+  clientDelay?: { delayMin: number; reportedAt: string; expectedAt: string; withinTolerance: boolean };
   delayNotice?: { delayMin: number; status: 'enviado' | 'confirmou' | 'remarcou' | 'cancelou'; expectedAt: string };
 }
 export interface FreeSlot {

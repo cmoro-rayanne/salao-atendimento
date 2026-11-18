@@ -14,7 +14,7 @@ import type { AgendaAdminRepository } from '../modules/appointments/admin-ports.
 import type { AgendaDeps } from '../modules/appointments/agenda.js';
 import type { CatalogRepository } from '../modules/appointments/ports.js';
 import { agendaRoutes } from './agenda-routes.js';
-import type { DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
+import type { ClientDelayRepository, DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
 import { testAgentAnswer } from '../modules/agent/sandbox.js';
 import type { UnansweredQuestionRepository } from '../modules/handoff/ports.js';
 import { parseKnowledgeDoc } from '../modules/knowledge/import-doc.js';
@@ -35,7 +35,7 @@ export interface AdminDeps extends LoginDeps {
   agendaAdmin: AgendaAdminRepository;
   agenda: AgendaDeps;
   /** Aviso de atraso (spec 0014). Ausente = recurso desligado (503). */
-  delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler };
+  delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler; clientReports: ClientDelayRepository };
   clients: ClientAdminRepository;
   settings: TenantSettingsRepository;
   unanswered: UnansweredQuestionRepository;

@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { HoursBlock } from '../modules/appointments/admin-ports.js';
+import { CLIENT_DELAY_TOLERANCE_MIN } from '../modules/appointments/agenda.js';
 import { delayStatus, requestDelayNotice, MAX_DELAY_MIN, MIN_DELAY_MIN } from '../modules/appointments/delay-notice.js';
-import type { DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
+import type { ClientDelayRepository, DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
 import { normalizePhone, panelBook, panelCancel, panelFreeSlots, panelReschedule, type PanelAgendaDeps } from '../modules/appointments/panel.js';
 
 const IdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -71,7 +72,7 @@ export function agendaRoutes(
   auth: FastifyInstance,
   deps: PanelAgendaDeps & {
     tenantTimeZone: (tenantId: number) => Promise<string>;
-    delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler } | undefined;
+    delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler; clientReports: ClientDelayRepository } | undefined;
   },
   ownerOnly: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
 ): void {
@@ -143,16 +144,34 @@ export function agendaRoutes(
     const q = RangeQuery.safeParse(req.query);
     if (!q.success) return bad(reply, 'Informe o período (from, to).');
     const list = await deps.admin.listAppointments(tenantOf(req), new Date(q.data.from), new Date(q.data.to));
-    const sent = deps.delayNotice ? await deps.delayNotice.notices.latestSent(list.map((a) => a.id)) : [];
+    const ids = list.map((a) => a.id);
+    const [sent, reported] = deps.delayNotice
+      ? await Promise.all([deps.delayNotice.notices.latestSent(ids), deps.delayNotice.clientReports.latest(ids)])
+      : [[], []];
     const byAppointment = new Map(sent.map((n) => [n.appointmentId, n] as const));
+    const reportByAppointment = new Map(reported.map((r) => [r.appointmentId, r] as const));
     return {
       appointments: list.map((a) => {
         const n = byAppointment.get(a.id);
-        if (!n) return a;
-        const status = a.status === 'cancelado' ? 'cancelou' : delayStatus(n, a);
+        const r = reportByAppointment.get(a.id);
+        if (!n && !r) return a;
         return {
           ...a,
-          delayNotice: { delayMin: n.delayMin, status, expectedAt: new Date(n.originalStartsAt.getTime() + n.delayMin * 60_000) },
+          ...(n && {
+            delayNotice: {
+              delayMin: n.delayMin,
+              status: a.status === 'cancelado' ? 'cancelou' : delayStatus(n, a),
+              expectedAt: new Date(n.originalStartsAt.getTime() + n.delayMin * 60_000),
+            },
+          }),
+          ...(r && {
+            clientDelay: {
+              delayMin: r.delayMin,
+              reportedAt: r.reportedAt,
+              expectedAt: new Date(a.startsAt.getTime() + r.delayMin * 60_000),
+              withinTolerance: r.delayMin <= CLIENT_DELAY_TOLERANCE_MIN,
+            },
+          }),
         };
       }),
     };

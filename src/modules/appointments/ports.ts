@@ -187,3 +187,17 @@ export interface DelayNoticeSender {
 export interface DelayNoticeScheduler {
   enqueue(noticeId: number): Promise<void>;
 }
+
+/** Spec 0014 (parte 2): atraso informado pela própria cliente. */
+export interface ClientDelayReport {
+  appointmentId: number;
+  delayMin: number;
+  reportedAt: Date;
+}
+
+export interface ClientDelayRepository {
+  /** `false` se a cliente já avisou esse mesmo atraso para o agendamento (idempotência). */
+  record(tenantId: number, appointmentId: number, delayMin: number, now: Date): Promise<boolean>;
+  /** Último aviso de cada agendamento. */
+  latest(appointmentIds: number[]): Promise<ClientDelayReport[]>;
+}

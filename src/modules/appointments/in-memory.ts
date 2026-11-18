@@ -11,6 +11,8 @@ import type {
   BookResult,
   CancelResult,
   CatalogRepository,
+  ClientDelayReport,
+  ClientDelayRepository,
   DelayNoticeInfo,
   DelayNoticeRepository,
   DelayNoticeSummary,
@@ -43,7 +45,8 @@ interface StoredNotice extends DelayNoticeSummary {
   tenantId: number;
 }
 
-export class InMemoryAgenda implements CatalogRepository, AppointmentRepository, DelayNoticeRepository {
+export class InMemoryAgenda implements CatalogRepository, AppointmentRepository, DelayNoticeRepository, ClientDelayRepository {
+  clientReports: Array<ClientDelayReport & { tenantId: number }> = [];
   notices: StoredNotice[] = [];
   private nextNoticeId = 1;
   services: SalonService[] = [];
@@ -300,5 +303,19 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository,
     if (!n || n.response) return false;
     n.response = 'chegara_depois';
     return true;
+  }
+
+  // ---- ClientDelayRepository ----
+  async record(tenantId: number, appointmentId: number, delayMin: number, now: Date): Promise<boolean> {
+    if (this.clientReports.some((r) => r.appointmentId === appointmentId && r.delayMin === delayMin)) return false;
+    this.clientReports.push({ tenantId, appointmentId, delayMin, reportedAt: now });
+    return true;
+  }
+
+  async latest(appointmentIds: number[]): Promise<ClientDelayReport[]> {
+    return appointmentIds.flatMap((id) => {
+      const last = this.clientReports.filter((r) => r.appointmentId === id).at(-1);
+      return last ? [last] : [];
+    });
   }
 }

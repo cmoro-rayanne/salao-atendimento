@@ -1,14 +1,19 @@
-# Spec 0014 — Aviso de atraso para a cliente
+# Spec 0014 — Aviso de atraso (salão → cliente e cliente → salão)
 
 ## Objetivo
 Quando o salão está atrasado, a recepção avisa a cliente pelo WhatsApp em um clique. A cliente escolhe: chegar mais tarde no novo
 horário previsto, ou remarcar (inclusive para um horário mais cedo). A IA cuida da resposta e a agenda reflete o que ela escolheu.
 
-## Como entendi o pedido
-"Aviso à cliente em caso de atraso, perguntando se ela pode vir X minutos mais tarde ou se prefere vir mais cedo, remarcando."
-Interpretação adotada: quem avisa é o **salão** (a cliente não está atrasada); "mais cedo" é um horário livre anterior ao previsto,
-alcançado pela remarcação normal. Se a intenção era outra (por exemplo, a cliente avisando o salão do próprio atraso), muda a
-entrega 1 e a spec deve ser revista antes de continuar.
+## Dois sentidos
+O aviso vale nos dois sentidos (confirmado pela Ray):
+1. **Salão → cliente:** o salão está atrasado e avisa (descrito abaixo).
+2. **Cliente → salão:** a cliente diz no WhatsApp que vai se atrasar. A IA usa `avisar_atraso_cliente(agendamento_id, minutos)`,
+   que grava em `client_delay_reports` (migration 013, `UNIQUE (appointment_id, delay_min)`), deixa uma nota privada para a equipe
+   no Chatwoot e mostra o aviso na agenda do painel.
+   - **Tolerância de 15 minutos** (constante `CLIENT_DELAY_TOLERANCE_MIN`): até 15 min o horário é mantido e a IA confirma isso à cliente.
+     Acima de 15 min a IA não promete nada, diz que a equipe vai avaliar e oferece remarcar. Acima de 60 min não registra e propõe remarcar.
+   - Só vale para agendamentos da própria pessoa que começam de 30 min atrás a 6 h à frente. Não altera o agendamento.
+   - A tolerância fixa em 15 min vale para todos os salões; torná-la configurável por salão fica para uma próxima entrega.
 
 ## Decisões
 - **Disparo manual, por agendamento.** Botão "Avisar atraso" na agenda do painel, com os minutos de atraso (5 a 120). Dono e recepção podem.
@@ -65,5 +70,6 @@ depois mostra a situação do aviso.
 - [ ] A IA, ao ver a resposta "pode sim", chama `confirmar_chegada_atrasada` e confirma o horário previsto sem mexer na agenda.
 - [ ] Ao pedir um horário mais cedo, a IA consulta horários livres e remarca; o aviso aparece como "remarcou".
 - [ ] `consultar_horarios` e `remarcar_agendamento` continuam sendo o único caminho de mudança de horário.
+- [ ] Cliente que avisa até 15 min recebe "horário mantido"; acima de 15 min não recebe promessa e a IA oferece remarcar; a equipe recebe nota privada em ambos.
 - [ ] Testado contra Postgres e Redis reais (repositório, rota e fila): os testes unitários cobrem o domínio com a agenda em memória.
 - [ ] Antes de produção: template `aviso_atraso` aprovado na Meta e `npm run eval` rodado com casos de aviso de atraso.

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/modules/agent/ports.js';
-import { bookService, confirmLateArrival, listMine, rescheduleAppointment, type AgendaDeps } from '../src/modules/appointments/agenda.js';
+import { bookService, confirmLateArrival, listMine, reportClientDelay, rescheduleAppointment, type AgendaDeps } from '../src/modules/appointments/agenda.js';
 import { delayStatus, requestDelayNotice, sendDelayNotice, type RequestDelayDeps } from '../src/modules/appointments/delay-notice.js';
 import { InMemoryAgenda } from '../src/modules/appointments/in-memory.js';
 
@@ -209,5 +209,54 @@ describe('delayStatus', () => {
     expect(delayStatus({ response: null, originalStartsAt: at }, { startsAt: at })).toBe('enviado');
     expect(delayStatus({ response: 'chegara_depois', originalStartsAt: at }, { startsAt: at })).toBe('confirmou');
     expect(delayStatus({ response: null, originalStartsAt: at }, { startsAt: new Date(at.getTime() - 1800_000) })).toBe('remarcou');
+  });
+});
+
+describe('cliente avisa o próprio atraso (IA)', () => {
+  let notes: string[];
+  let withClient: AgendaDeps;
+  beforeEach(() => {
+    notes = [];
+    withClient = { ...aiDeps, clientDelays: agenda, inbox: { addPrivateNote: async (_a, _c, note) => void notes.push(note) } };
+  });
+  const report = (delayMin: number, id = 1, c = ctx) => reportClientDelay(withClient, c, { appointmentId: id, delayMin });
+
+  it('até 15 min: registra, avisa a equipe e mantém o horário', async () => {
+    const text = await report(10);
+    expect(text).toContain('dentro da tolerância de 15 min');
+    expect(text).toContain('mantido');
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain('10 min');
+    expect(notes[0]).toContain('10:10');
+    expect(notes[0]).toContain('horário mantido');
+    expect(agenda.stored[0]!.startsAt).toEqual(new Date('2026-11-17T10:00:00-03:00'));
+  });
+
+  it('exatamente 15 min ainda é tolerado; 16 não', async () => {
+    expect(await report(15)).toContain('dentro da tolerância');
+    const text = await report(16);
+    expect(text).toContain('passa da tolerância');
+    expect(text).toContain('Não prometa manter');
+    expect(notes.at(-1)).toContain('a equipe decide');
+  });
+
+  it('o mesmo aviso duas vezes não duplica a nota para a equipe', async () => {
+    await report(10);
+    await report(10);
+    expect(notes).toHaveLength(1);
+  });
+
+  it('não aceita agendamento de outra pessoa, distante (mais de 6 h) nem atraso acima de 60 min', async () => {
+    const other: ToolContext = { ...ctx, contact: { ...ctx.contact, phone: '+5541888880000' } };
+    expect(await report(10, 1, other)).toContain('não encontrado');
+    now = new Date('2026-11-17T03:00:00-03:00');
+    expect(await report(10)).toContain('longe');
+    now = NOW;
+    expect(await report(90)).toContain('remarcar');
+    expect(notes).toHaveLength(0);
+  });
+
+  it('sem os recursos ligados, manda transferir para a equipe', async () => {
+    expect(await reportClientDelay(aiDeps, ctx, { appointmentId: 1, delayMin: 10 })).toContain('Transfira');
   });
 });

@@ -8,6 +8,7 @@ import {
   listFreeSlots,
   listMine,
   confirmLateArrival,
+  reportClientDelay,
   listServices,
   rescheduleAppointment,
   type AgendaDeps,
@@ -54,6 +55,11 @@ const CancelarInput = z.object({
 
 const ChegadaInput = z.object({
   agendamento_id: z.number().int().positive().describe('O agendamento_id que veio de meus_agendamentos, com aviso de atraso'),
+});
+
+const AtrasoClienteInput = z.object({
+  agendamento_id: z.number().int().positive().describe('O agendamento_id que veio de meus_agendamentos'),
+  minutos: z.number().int().min(5).max(180).describe('Quantos minutos a pessoa acha que vai atrasar'),
 });
 
 const SemInput = z.object({});
@@ -134,6 +140,16 @@ export function buildTools(deps: ToolDeps): AgentTool[] {
       },
       input: ChegadaInput,
       run: (input, ctx) => confirmLateArrival(deps.agenda, ctx, input.agendamento_id),
+    }),
+    defineTool({
+      spec: {
+        name: 'avisar_atraso_cliente',
+        description:
+          'A cliente avisa que vai chegar atrasada ao horário marcado. Registra o atraso e avisa a equipe. Use quando ela disser que vai atrasar e quantos minutos; se não disser, pergunte. Não altera o agendamento.',
+        inputJsonSchema: jsonSchema(AtrasoClienteInput),
+      },
+      input: AtrasoClienteInput,
+      run: (input, ctx) => reportClientDelay(deps.agenda, ctx, { appointmentId: input.agendamento_id, delayMin: input.minutos }),
     }),
     defineTool({
       spec: {
