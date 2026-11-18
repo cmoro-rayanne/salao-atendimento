@@ -22,6 +22,7 @@
     "eval": "tsx eval/run-eval.ts",
     "admin:create": "tsx src/scripts/create-admin.ts",
     "admin:create:prod": "node dist/scripts/create-admin.js",
+    "salao:seed": "tsx src/scripts/seed-salao-ficticio.ts",
     "kb:import": "tsx src/scripts/import-knowledge.ts",
     "kb:import:prod": "node dist/scripts/import-knowledge.js",
     "dev:web": "vite --config web/vite.config.ts",

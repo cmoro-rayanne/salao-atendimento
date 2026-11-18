@@ -14,6 +14,7 @@ import type { AgendaAdminRepository } from '../modules/appointments/admin-ports.
 import type { AgendaDeps } from '../modules/appointments/agenda.js';
 import type { CatalogRepository } from '../modules/appointments/ports.js';
 import { agendaRoutes } from './agenda-routes.js';
+import type { DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
 import { testAgentAnswer } from '../modules/agent/sandbox.js';
 import type { UnansweredQuestionRepository } from '../modules/handoff/ports.js';
 import { parseKnowledgeDoc } from '../modules/knowledge/import-doc.js';
@@ -33,6 +34,8 @@ export interface AdminDeps extends LoginDeps {
   catalog: CatalogRepository;
   agendaAdmin: AgendaAdminRepository;
   agenda: AgendaDeps;
+  /** Aviso de atraso (spec 0014). Ausente = recurso desligado (503). */
+  delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler };
   clients: ClientAdminRepository;
   settings: TenantSettingsRepository;
   unanswered: UnansweredQuestionRepository;
@@ -140,7 +143,7 @@ export async function adminRoutes(app: FastifyInstance, deps: AdminDeps): Promis
 
     agendaRoutes(
       auth,
-      { agenda: deps.agenda, admin: deps.agendaAdmin, tenantTimeZone: async (id) => (await deps.tenantInfo(id)).timeZone },
+      { agenda: deps.agenda, admin: deps.agendaAdmin, delayNotice: deps.delayNotice, tenantTimeZone: async (id) => (await deps.tenantInfo(id)).timeZone },
       ownerOnly,
     );
 

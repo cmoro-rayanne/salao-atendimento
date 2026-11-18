@@ -11,6 +11,9 @@ import type {
   BookResult,
   CancelResult,
   CatalogRepository,
+  DelayNoticeInfo,
+  DelayNoticeRepository,
+  DelayNoticeSummary,
   Professional,
   ReminderInfo,
   RescheduleRequest,
@@ -35,7 +38,14 @@ interface Stored {
   conversationId: number | null;
 }
 
-export class InMemoryAgenda implements CatalogRepository, AppointmentRepository {
+interface StoredNotice extends DelayNoticeSummary {
+  id: number;
+  tenantId: number;
+}
+
+export class InMemoryAgenda implements CatalogRepository, AppointmentRepository, DelayNoticeRepository {
+  notices: StoredNotice[] = [];
+  private nextNoticeId = 1;
   services: SalonService[] = [];
   professionals: (Professional & { hours: WorkingInterval[]; timeOff: { startsAt: Date; endsAt: Date }[] })[] = [];
   stored: Stored[] = [];
@@ -232,5 +242,63 @@ export class InMemoryAgenda implements CatalogRepository, AppointmentRepository 
   async clearReminderSent(appointmentId: number): Promise<void> {
     const a = this.stored.find((x) => x.id === appointmentId);
     if (a) a.reminderSentAt = null;
+  }
+
+  // ---- DelayNoticeRepository ----
+  async create(input: { tenantId: number; appointmentId: number; delayMin: number; originalStartsAt: Date }): Promise<number | null> {
+    if (this.notices.some((n) => n.appointmentId === input.appointmentId && n.delayMin === input.delayMin)) return null;
+    const id = this.nextNoticeId++;
+    this.notices.push({ id, ...input, sentAt: null, response: null });
+    return id;
+  }
+
+  async remove(id: number): Promise<void> {
+    this.notices = this.notices.filter((n) => n.id !== id);
+  }
+
+  async getForSend(id: number): Promise<DelayNoticeInfo | null> {
+    const n = this.notices.find((x) => x.id === id);
+    const a = n && this.stored.find((x) => x.id === n.appointmentId);
+    if (!n || !a) return null;
+    return {
+      ...n,
+      appointmentStatus: a.status,
+      optedOut: this.optedOut.has(a.phone),
+      accountId: a.accountId,
+      conversationId: a.conversationId,
+      leadName: a.leadName,
+      serviceName: this.view(a).serviceName,
+      timeZone: this.config.timeZone,
+    };
+  }
+
+  async markSent(id: number): Promise<boolean> {
+    const n = this.notices.find((x) => x.id === id);
+    if (!n || n.sentAt) return false;
+    n.sentAt = new Date();
+    return true;
+  }
+
+  async clearSent(id: number): Promise<void> {
+    const n = this.notices.find((x) => x.id === id);
+    if (n) n.sentAt = null;
+  }
+
+  private latestOf(appointmentId: number): StoredNotice | undefined {
+    return this.notices.filter((n) => n.appointmentId === appointmentId && n.sentAt).sort((a, b) => b.id - a.id)[0];
+  }
+
+  async latestSent(appointmentIds: number[]): Promise<DelayNoticeSummary[]> {
+    return appointmentIds.flatMap((id) => {
+      const n = this.latestOf(id);
+      return n ? [n] : [];
+    });
+  }
+
+  async confirmLatest(appointmentId: number): Promise<boolean> {
+    const n = this.latestOf(appointmentId);
+    if (!n || n.response) return false;
+    n.response = 'chegara_depois';
+    return true;
   }
 }

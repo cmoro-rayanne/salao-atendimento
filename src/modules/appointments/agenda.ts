@@ -2,7 +2,15 @@ import type { ToolContext } from '../agent/ports.js';
 import { formatLocal } from '../../shared/time-zone.js';
 import { computeFreeSlots, pickProfessional, type FreeSlot } from './availability.js';
 import { formatMoney, parseLocalDateTime, parseLocalDay, toLocalIso } from './local-time.js';
-import type { Appointment, AppointmentRepository, CatalogRepository, ReminderScheduler, SalonService } from './ports.js';
+import { clock } from './delay-notice.js';
+import type {
+  Appointment,
+  AppointmentRepository,
+  CatalogRepository,
+  DelayNoticeRepository,
+  ReminderScheduler,
+  SalonService,
+} from './ports.js';
 import { reminderTime } from './reminder-time.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -13,6 +21,8 @@ export interface AgendaDeps {
   catalog: CatalogRepository;
   appointments: AppointmentRepository;
   reminders: ReminderScheduler;
+  /** Avisos de atraso (spec 0014). Sem isso, a IA ignora o assunto. */
+  delayNotices?: Pick<DelayNoticeRepository, 'latestSent' | 'confirmLatest'>;
   now: () => Date;
 }
 
@@ -103,7 +113,34 @@ export async function listMine(deps: AgendaDeps, ctx: ToolContext): Promise<stri
   if (!ctx.contact.phone) return 'Não há agendamentos para este contato.';
   const list = await deps.appointments.listUpcoming(ctx.tenantId, ctx.contact.phone, deps.now());
   if (!list.length) return 'A pessoa não tem agendamentos futuros.';
-  return ['Agendamentos futuros:', ...list.map((a) => `agendamento_id ${a.id}: ${describe(a, ctx.timeZone)}`)].join('\n');
+  const notices = new Map(
+    (await deps.delayNotices?.latestSent(list.map((a) => a.id)))?.map((n) => [n.appointmentId, n] as const) ?? [],
+  );
+  return [
+    'Agendamentos futuros:',
+    ...list.map((a) => {
+      const n = notices.get(a.id);
+      // Só vale enquanto o início é o mesmo do aviso e a cliente ainda não respondeu.
+      const pending = n && !n.response && n.originalStartsAt.getTime() === a.startsAt.getTime();
+      const note = pending
+        ? ` | AVISO DE ATRASO enviado pelo salão: atraso de ${n.delayMin} min, novo horário previsto ${clock(new Date(a.startsAt.getTime() + n.delayMin * 60_000), ctx.timeZone)}. Aguardando a cliente dizer se pode nesse horário ou prefere remarcar`
+        : '';
+      return `agendamento_id ${a.id}: ${describe(a, ctx.timeZone)}${note}`;
+    }),
+  ].join('\n');
+}
+
+/** Command: a cliente topou chegar no horário previsto do aviso de atraso. Não mexe na agenda. */
+export async function confirmLateArrival(deps: AgendaDeps, ctx: ToolContext, appointmentId: number): Promise<string> {
+  if (!deps.delayNotices || !ctx.contact.phone) return 'Não há aviso de atraso para este contato.';
+  const mine = await deps.appointments.listUpcoming(ctx.tenantId, ctx.contact.phone, deps.now());
+  if (!mine.some((a) => a.id === appointmentId)) return 'Agendamento não encontrado entre os da pessoa. Use meus_agendamentos.';
+  const [notice] = await deps.delayNotices.latestSent([appointmentId]);
+  if (!notice) return 'O salão não enviou aviso de atraso para este agendamento.';
+  if (notice.response === 'chegara_depois') return 'Já está confirmado: a pessoa chega no horário previsto.';
+  const ok = await deps.delayNotices.confirmLatest(appointmentId);
+  if (!ok) return 'Não há aviso de atraso pendente para este agendamento.';
+  return 'Confirmado. Agradeça e diga que a equipe espera a pessoa no horário previsto.';
 }
 
 export async function scheduleReminder(deps: AgendaDeps, a: Appointment, tz: string): Promise<void> {

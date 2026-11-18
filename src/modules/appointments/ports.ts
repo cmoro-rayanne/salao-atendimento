@@ -141,3 +141,49 @@ export interface ReminderScheduler {
   schedule(appointmentId: number, at: Date): Promise<string>;
   cancel(jobId: string): Promise<void>;
 }
+
+/** Spec 0014: aviso de atraso enviado pela recepção. */
+export interface DelayNoticeSummary {
+  appointmentId: number;
+  delayMin: number;
+  originalStartsAt: Date;
+  sentAt: Date | null;
+  response: 'chegara_depois' | null;
+}
+
+export interface DelayNoticeInfo extends DelayNoticeSummary {
+  id: number;
+  appointmentStatus: 'agendado' | 'cancelado' | 'concluido' | 'faltou';
+  optedOut: boolean;
+  accountId: number | null;
+  conversationId: number | null;
+  leadName: string | null;
+  serviceName: string;
+  timeZone: string;
+}
+
+export interface DelayNoticeRepository {
+  /** `null` se já existe aviso com esses minutos para o agendamento. */
+  create(input: { tenantId: number; appointmentId: number; delayMin: number; originalStartsAt: Date }): Promise<number | null>;
+  remove(id: number): Promise<void>;
+  getForSend(id: number): Promise<DelayNoticeInfo | null>;
+  /** Atômico: só marca se ainda não foi enviado. */
+  markSent(id: number): Promise<boolean>;
+  clearSent(id: number): Promise<void>;
+  /** Último aviso enviado de cada agendamento (o mais recente). */
+  latestSent(appointmentIds: number[]): Promise<DelayNoticeSummary[]>;
+  /** Registra que a cliente topou o horário previsto no último aviso enviado sem resposta. */
+  confirmLatest(appointmentId: number): Promise<boolean>;
+}
+
+export interface DelayNoticeSender {
+  sendDelayNotice(
+    accountId: number,
+    conversationId: number,
+    params: { name: string; service: string; delayMin: number; expected: string },
+  ): Promise<void>;
+}
+
+export interface DelayNoticeScheduler {
+  enqueue(noticeId: number): Promise<void>;
+}

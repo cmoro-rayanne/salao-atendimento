@@ -2,9 +2,10 @@ import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import pino from 'pino';
 import { ChatwootClient } from './adapters/chatwoot/chatwoot-client.js';
-import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
+import { ChatwootGateway, DEFAULT_APPOINTMENT_REMINDER_BODY, DEFAULT_DELAY_NOTICE_BODY } from './adapters/chatwoot/chatwoot-gateway.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
+import { PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
 import {
   PgAgentRunRepository,
   PgHandoffRepository,
@@ -19,6 +20,7 @@ import {
   BullAppointmentReminderScheduler,
   type AppointmentReminderJob,
 } from './adapters/queue/appointment-reminder-queue.js';
+import { DELAY_NOTICE_QUEUE, type DelayNoticeJob } from './adapters/queue/delay-notice-queue.js';
 import { BullConversationQueue, REPLY_QUEUE } from './adapters/queue/reply-queue.js';
 import { createAlerts } from './adapters/alerts/create-alerts.js';
 import { loadEnv, requireLlmKey } from './config/env.js';
@@ -31,6 +33,7 @@ import {
   type ReplyDeps,
 } from './modules/conversation/reply-to-conversation.js';
 import { sendAppointmentReminder } from './modules/appointments/send-reminder.js';
+import { sendDelayNotice } from './modules/appointments/delay-notice.js';
 
 const BUSY_RETRY_MS = 5_000;
 
@@ -44,7 +47,12 @@ const chatwoot = new ChatwootGateway(new ChatwootClient(env.CHATWOOT_BASE_URL, e
   name: env.APPOINTMENT_REMINDER_TEMPLATE_NAME,
   language: env.REMINDER_TEMPLATE_LANG,
   body: DEFAULT_APPOINTMENT_REMINDER_BODY,
+}, {
+  name: env.APPOINTMENT_DELAY_TEMPLATE_NAME,
+  language: env.REMINDER_TEMPLATE_LANG,
+  body: DEFAULT_DELAY_NOTICE_BODY,
 });
+const delayNotices = new PgDelayNoticeRepository(sql);
 const appointmentRepo = new PgAppointmentRepository(sql);
 const appointmentReminders = new BullAppointmentReminderScheduler(redis);
 const now = () => new Date();
@@ -64,7 +72,7 @@ const deps: ReplyDeps = {
   lock: new RedisConversationLock(redis),
   leads: new PgLeadRepository(sql),
   handoff: { inbox: chatwoot, handoffs: new PgHandoffRepository(sql) },
-  agenda: { catalog: new PgCatalogRepository(sql), appointments: appointmentRepo, reminders: appointmentReminders, now },
+  agenda: { catalog: new PgCatalogRepository(sql), appointments: appointmentRepo, reminders: appointmentReminders, delayNotices, now },
 };
 
 const worker = new Worker<ReplyJob>(
@@ -129,6 +137,26 @@ appointmentReminderWorker.on('failed', (job, err) => {
   }
 });
 
+const delayNoticeWorker = new Worker<DelayNoticeJob>(
+  DELAY_NOTICE_QUEUE,
+  async (job) => {
+    const outcome = await sendDelayNotice({ notices: delayNotices, sender: chatwoot }, job.data.noticeId);
+    log.info({ jobId: job.id, noticeId: job.data.noticeId, outcome }, 'aviso de atraso');
+  },
+  { connection: redis, concurrency: 2 },
+);
+
+delayNoticeWorker.on('failed', (job, err) => {
+  const exhausted = job && job.attemptsMade >= (job.opts.attempts ?? 1);
+  log.error({ jobId: job?.id, err, dlq: exhausted }, exhausted ? 'aviso de atraso foi para a DLQ' : 'aviso de atraso falhou, vai tentar de novo');
+  if (exhausted && job) {
+    void alerts.notify({
+      key: `delay-notice-dlq:${job.data.noticeId}`,
+      text: `O aviso de atraso ${job.data.noticeId} não foi enviado: ${err.message}. Confira o template aviso_atraso na Meta e avise a cliente por telefone.`,
+    });
+  }
+});
+
 // Batimento para o /health/ready da API saber que o worker está vivo.
 const heartbeat = setInterval(() => {
   redis.set(WORKER_HEARTBEAT_KEY, String(Date.now()), 'EX', 300).catch((err: unknown) => log.warn({ err }, 'heartbeat falhou'));
@@ -139,6 +167,7 @@ async function shutdown(): Promise<void> {
   clearInterval(heartbeat);
   await worker.close();
   await appointmentReminderWorker.close();
+  await delayNoticeWorker.close();
   await appointmentReminders.close();
   await queue.close();
   await redis.quit();

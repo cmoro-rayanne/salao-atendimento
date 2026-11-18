@@ -117,6 +117,8 @@ export interface Appointment {
   clientPhone: string;
   reminderSentAt: string | null;
   chatwootConversationId: number | null;
+  /** Último aviso de atraso enviado (spec 0014). */
+  delayNotice?: { delayMin: number; status: 'enviado' | 'confirmou' | 'remarcou' | 'cancelou'; expectedAt: string };
 }
 export interface FreeSlot {
   startsAt: string;
@@ -248,6 +250,7 @@ export const api = {
     request<{ ok: true }>('PATCH', `/appointments/${id}`, { status }),
   rescheduleAppointment: (id: number, startsAt: string, professionalId?: number) =>
     request<{ ok: true }>('POST', `/appointments/${id}/reschedule`, { startsAt, ...(professionalId ? { professionalId } : {}) }),
+  sendDelayNotice: (id: number, delayMin: number) => request<{ ok: true; duplicate?: true }>('POST', `/appointments/${id}/delay-notice`, { delayMin }),
   cancelAppointment: (id: number) => request<{ ok: true }>('DELETE', `/appointments/${id}`),
 
   report: (month?: string) => request<Report>('GET', `/report${month ? `?month=${month}` : ''}`),

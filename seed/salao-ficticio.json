@@ -1,0 +1,265 @@
+{
+  "salao": "Salão Fictício Lume (dados inventados para teste)",
+  "profissionais": [
+    {
+      "nome": "Bia",
+      "servicos": [
+        "Manicure (mão normal, esmalte comum)",
+        "Pé normal (esmalte comum)",
+        "Mão e pé normal",
+        "Esmaltação em gel mão",
+        "Esmaltação em gel pé",
+        "Unha em gel mão",
+        "Unha em gel pé",
+        "Sobrancelha",
+        "Corte cabelo curto",
+        "Corte cabelo médio",
+        "Corte cabelo longo",
+        "Escova cabelo curto",
+        "Escova cabelo médio",
+        "Escova cabelo longo",
+        "Corte e escova",
+        "Hidratação e escova",
+        "Progressiva e escova",
+        "Penteado"
+      ],
+      "expediente": [
+        {
+          "weekday": 2,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 2,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 3,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 3,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 4,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 4,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 5,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 5,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 6,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 6,
+          "startMin": 780,
+          "endMin": 1140
+        }
+      ]
+    },
+    {
+      "nome": "Carla",
+      "servicos": [
+        "Manicure (mão normal, esmalte comum)",
+        "Pé normal (esmalte comum)",
+        "Mão e pé normal",
+        "Esmaltação em gel mão",
+        "Esmaltação em gel pé",
+        "Unha em gel mão",
+        "Unha em gel pé",
+        "Sobrancelha",
+        "Corte cabelo curto",
+        "Corte cabelo médio",
+        "Corte cabelo longo",
+        "Escova cabelo curto",
+        "Escova cabelo médio",
+        "Escova cabelo longo",
+        "Corte e escova",
+        "Hidratação e escova",
+        "Progressiva e escova",
+        "Penteado"
+      ],
+      "expediente": [
+        {
+          "weekday": 2,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 2,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 3,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 3,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 4,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 4,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 5,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 5,
+          "startMin": 780,
+          "endMin": 1140
+        },
+        {
+          "weekday": 6,
+          "startMin": 540,
+          "endMin": 720
+        },
+        {
+          "weekday": 6,
+          "startMin": 780,
+          "endMin": 1140
+        }
+      ]
+    }
+  ],
+  "servicos": [
+    {
+      "nome": "Manicure (mão normal, esmalte comum)",
+      "duracaoMin": 45,
+      "precoCentavos": 4000,
+      "descricao": null
+    },
+    {
+      "nome": "Pé normal (esmalte comum)",
+      "duracaoMin": 45,
+      "precoCentavos": 4500,
+      "descricao": null
+    },
+    {
+      "nome": "Mão e pé normal",
+      "duracaoMin": 90,
+      "precoCentavos": 8000,
+      "descricao": null
+    },
+    {
+      "nome": "Esmaltação em gel mão",
+      "duracaoMin": 60,
+      "precoCentavos": 7000,
+      "descricao": null
+    },
+    {
+      "nome": "Esmaltação em gel pé",
+      "duracaoMin": 60,
+      "precoCentavos": 7500,
+      "descricao": null
+    },
+    {
+      "nome": "Unha em gel mão",
+      "duracaoMin": 90,
+      "precoCentavos": 15000,
+      "descricao": null
+    },
+    {
+      "nome": "Unha em gel pé",
+      "duracaoMin": 90,
+      "precoCentavos": 16000,
+      "descricao": null
+    },
+    {
+      "nome": "Sobrancelha",
+      "duracaoMin": 30,
+      "precoCentavos": 3500,
+      "descricao": null
+    },
+    {
+      "nome": "Corte cabelo curto",
+      "duracaoMin": 45,
+      "precoCentavos": 7000,
+      "descricao": null
+    },
+    {
+      "nome": "Corte cabelo médio",
+      "duracaoMin": 60,
+      "precoCentavos": 9000,
+      "descricao": null
+    },
+    {
+      "nome": "Corte cabelo longo",
+      "duracaoMin": 75,
+      "precoCentavos": 11000,
+      "descricao": null
+    },
+    {
+      "nome": "Escova cabelo curto",
+      "duracaoMin": 30,
+      "precoCentavos": 5000,
+      "descricao": null
+    },
+    {
+      "nome": "Escova cabelo médio",
+      "duracaoMin": 45,
+      "precoCentavos": 6500,
+      "descricao": null
+    },
+    {
+      "nome": "Escova cabelo longo",
+      "duracaoMin": 60,
+      "precoCentavos": 8500,
+      "descricao": null
+    },
+    {
+      "nome": "Corte e escova",
+      "duracaoMin": 105,
+      "precoCentavos": 15000,
+      "descricao": "Preço do comprimento médio; longo e curto a confirmar com a equipe"
+    },
+    {
+      "nome": "Hidratação e escova",
+      "duracaoMin": 90,
+      "precoCentavos": 12000,
+      "descricao": null
+    },
+    {
+      "nome": "Progressiva e escova",
+      "duracaoMin": 180,
+      "precoCentavos": 28000,
+      "descricao": null
+    },
+    {
+      "nome": "Penteado",
+      "duracaoMin": 60,
+      "precoCentavos": 12000,
+      "descricao": null
+    }
+  ]
+}

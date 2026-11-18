@@ -77,4 +77,8 @@ Spec 0013 (`docs/specs/0013-agenda-salao.md`):
 
 Antes do go-live: aprovar o template `lembrete_agendamento` no WhatsApp Manager (`{{1}}` nome, `{{2}}` serviço, `{{3}}` profissional, `{{4}}` data e hora).
 
+Aviso de atraso (spec 0014): aprovar também o template `aviso_atraso` (`{{1}}` nome, `{{2}}` serviço, `{{3}}` minutos de atraso, `{{4}}` novo horário previsto; nome configurável em `APPOINTMENT_DELAY_TEMPLATE_NAME`). Texto sugerido: "Oi, {{1}}! Estamos com cerca de {{3}} minutos de atraso e seu horário de {{2}} passa a ser por volta das {{4}}. Você consegue chegar nesse horário? Se preferir, responda por aqui para remarcar, inclusive para um horário mais cedo."
+
+Salão fictício para testes: `DATABASE_URL=... npm run salao:seed -- --tenant 1` (serviços, duas profissionais e expediente de `seed/salao-ficticio.json`; só carrega se o salão ainda não tiver serviços).
+
 A migration `011_limpeza_academia.sql` apaga `trial_bookings`, `trial_slots` e as colunas de lead da academia (`goal`, `modality`, `status`, `enrolled_at`). É destrutiva: não rode em banco com dados da academia sem backup.

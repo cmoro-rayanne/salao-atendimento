@@ -154,6 +154,9 @@ export function AgendaPage({ me }: { me: Me }) {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [filter, setFilter] = useState<number | null>(null);
   const [moving, setMoving] = useState<number | null>(null);
+  const [delaying, setDelaying] = useState<number | null>(null);
+  const [delayMin, setDelayMin] = useState(15);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -206,6 +209,16 @@ export function AgendaPage({ me }: { me: Me }) {
     const started = Date.parse(a.startsAt) <= Date.now();
     const ended = Date.parse(a.endsAt) <= Date.now();
     const name = a.clientName ?? 'Sem nome informado';
+    const untilStart = Date.parse(a.startsAt) - Date.now();
+    const canWarn = a.status === 'agendado' && a.chatwootConversationId !== null && untilStart > -30 * 60_000 && untilStart < 6 * 3_600_000;
+    const delayText = a.delayNotice
+      ? {
+          enviado: `Avisada do atraso de ${a.delayNotice.delayMin} min (por volta das ${time(a.delayNotice.expectedAt, tz)}). Aguardando resposta`,
+          confirmou: `Avisada do atraso: chega por volta das ${time(a.delayNotice.expectedAt, tz)}`,
+          remarcou: 'Avisada do atraso e remarcou',
+          cancelou: 'Avisada do atraso e cancelou',
+        }[a.delayNotice.status]
+      : null;
     return (
       <li key={a.id} className={a.status === 'agendado' && ended ? 'booking unmarked' : 'booking'} style={{ ['--plate' as string]: plateFor(a.professionalName) }}>
         <span className="booking-time">
@@ -233,6 +246,11 @@ export function AgendaPage({ me }: { me: Me }) {
           </span>
         ) : (
           <span className="slot-actions">
+            {canWarn && (
+              <button className="quiet" onClick={() => setDelaying(delaying === a.id ? null : a.id)}>
+                Avisar atraso
+              </button>
+            )}
             <button className="quiet" onClick={() => setMoving(moving === a.id ? null : a.id)}>
               Remarcar
             </button>
@@ -250,6 +268,34 @@ export function AgendaPage({ me }: { me: Me }) {
           <a className="nowrap" href={`${me.chatwootAccountUrl}/conversations/${a.chatwootConversationId}`} target="_blank" rel="noreferrer">
             Abrir conversa
           </a>
+        )}
+        {delayText && <span className="sub">{delayText}</span>}
+        {delaying === a.id && (
+          <div className="move-panel">
+            <h3>Avisar {name} do atraso</h3>
+            <label>
+              Atraso previsto
+              <select value={delayMin} onChange={(e) => setDelayMin(Number(e.target.value))}>
+                {[10, 15, 20, 30, 45, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m} minutos
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="sub">A cliente recebe um aviso no WhatsApp com o novo horário previsto e pode confirmar ou remarcar, inclusive para mais cedo.</p>
+            <button
+              onClick={() =>
+                void act(async () => {
+                  await api.sendDelayNotice(a.id, delayMin);
+                  setDelaying(null);
+                  setNotice(`Aviso a caminho de ${name}.`);
+                })
+              }
+            >
+              Enviar aviso
+            </button>
+          </div>
         )}
         {moving === a.id && (
           <div className="move-panel">
@@ -303,6 +349,7 @@ export function AgendaPage({ me }: { me: Me }) {
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
+      {notice && !error && <p className="sub" role="status">{notice}</p>}
 
       {pending.length > 0 && (
         <section className="day-group">

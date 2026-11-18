@@ -1,7 +1,7 @@
 import type { AgentMessage } from '../../modules/agent/ports.js';
 import type { ConversationGateway, ConversationSnapshot } from '../../modules/conversation/ports.js';
 import type { TeamInbox } from '../../modules/handoff/ports.js';
-import type { ReminderSender } from '../../modules/appointments/ports.js';
+import type { DelayNoticeSender, ReminderSender } from '../../modules/appointments/ports.js';
 import type { ChatwootClient, ChatwootMessage } from './chatwoot-client.js';
 
 const INCOMING = 0;
@@ -19,8 +19,11 @@ export interface ReminderTemplate {
 export const DEFAULT_APPOINTMENT_REMINDER_BODY =
   'Oi, {{1}}! Passando para lembrar do seu horário: {{2}} com {{3}}, {{4}}. Se precisar remarcar ou cancelar, é só responder por aqui.';
 
-/** Implementa as portas de conversa, equipe e lembrete sobre a API do Chatwoot. */
-export class ChatwootGateway implements ConversationGateway, TeamInbox, ReminderSender {
+export const DEFAULT_DELAY_NOTICE_BODY =
+  'Oi, {{1}}! Estamos com cerca de {{3}} minutos de atraso e seu horário de {{2}} passa a ser por volta das {{4}}. Você consegue chegar nesse horário? Se preferir, responda por aqui para remarcar, inclusive para um horário mais cedo.';
+
+/** Implementa as portas de conversa, equipe, lembrete e aviso de atraso sobre a API do Chatwoot. */
+export class ChatwootGateway implements ConversationGateway, TeamInbox, ReminderSender, DelayNoticeSender {
   constructor(
     private readonly client: ChatwootClient,
     private readonly appointmentTemplate: ReminderTemplate = {
@@ -28,7 +31,28 @@ export class ChatwootGateway implements ConversationGateway, TeamInbox, Reminder
       language: 'pt_BR',
       body: DEFAULT_APPOINTMENT_REMINDER_BODY,
     },
+    private readonly delayTemplate: ReminderTemplate = {
+      name: 'aviso_atraso',
+      language: 'pt_BR',
+      body: DEFAULT_DELAY_NOTICE_BODY,
+    },
   ) {}
+
+  async sendDelayNotice(
+    accountId: number,
+    conversationId: number,
+    p: { name: string; service: string; delayMin: number; expected: string },
+  ): Promise<void> {
+    const params = [p.name, p.service, String(p.delayMin), p.expected];
+    const content = params.reduce((text, value, i) => text.replaceAll(`{{${i + 1}}}`, value), this.delayTemplate.body);
+    await this.client.sendTemplate(accountId, conversationId, {
+      name: this.delayTemplate.name,
+      language: this.delayTemplate.language,
+      category: 'UTILITY',
+      params,
+      content,
+    });
+  }
 
   async sendAppointmentReminder(
     accountId: number,

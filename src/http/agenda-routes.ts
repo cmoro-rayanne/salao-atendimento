@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { HoursBlock } from '../modules/appointments/admin-ports.js';
+import { delayStatus, requestDelayNotice, MAX_DELAY_MIN, MIN_DELAY_MIN } from '../modules/appointments/delay-notice.js';
+import type { DelayNoticeRepository, DelayNoticeScheduler } from '../modules/appointments/ports.js';
 import { normalizePhone, panelBook, panelCancel, panelFreeSlots, panelReschedule, type PanelAgendaDeps } from '../modules/appointments/panel.js';
 
 const IdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -53,6 +55,7 @@ const NewAppointmentBody = z.object({
   name: z.string().trim().max(120).nullable().transform((v) => (v ? v : null)),
 });
 const StatusBody = z.object({ status: z.enum(['concluido', 'faltou', 'agendado']) });
+const DelayBody = z.object({ delayMin: z.number().int().min(MIN_DELAY_MIN).max(MAX_DELAY_MIN) });
 const RescheduleBody = z.object({ startsAt: iso, professionalId: z.number().int().positive().optional() });
 
 const bad = (reply: FastifyReply, error: string) => reply.code(400).send({ error });
@@ -66,7 +69,10 @@ const BOOK_MESSAGES = {
 /** Rotas de agenda, serviços e profissionais do painel. Registradas já dentro do escopo com sessão. */
 export function agendaRoutes(
   auth: FastifyInstance,
-  deps: PanelAgendaDeps & { tenantTimeZone: (tenantId: number) => Promise<string> },
+  deps: PanelAgendaDeps & {
+    tenantTimeZone: (tenantId: number) => Promise<string>;
+    delayNotice?: { notices: DelayNoticeRepository; scheduler: DelayNoticeScheduler } | undefined;
+  },
   ownerOnly: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
 ): void {
   const tenantOf = (req: FastifyRequest) => req.adminSession!.tenantId;
@@ -136,7 +142,57 @@ export function agendaRoutes(
   auth.get('/appointments', async (req, reply) => {
     const q = RangeQuery.safeParse(req.query);
     if (!q.success) return bad(reply, 'Informe o período (from, to).');
-    return { appointments: await deps.admin.listAppointments(tenantOf(req), new Date(q.data.from), new Date(q.data.to)) };
+    const list = await deps.admin.listAppointments(tenantOf(req), new Date(q.data.from), new Date(q.data.to));
+    const sent = deps.delayNotice ? await deps.delayNotice.notices.latestSent(list.map((a) => a.id)) : [];
+    const byAppointment = new Map(sent.map((n) => [n.appointmentId, n] as const));
+    return {
+      appointments: list.map((a) => {
+        const n = byAppointment.get(a.id);
+        if (!n) return a;
+        const status = a.status === 'cancelado' ? 'cancelou' : delayStatus(n, a);
+        return {
+          ...a,
+          delayNotice: { delayMin: n.delayMin, status, expectedAt: new Date(n.originalStartsAt.getTime() + n.delayMin * 60_000) },
+        };
+      }),
+    };
+  });
+
+  auth.post('/appointments/:id/delay-notice', async (req, reply) => {
+    if (!deps.delayNotice) return reply.code(503).send({ error: 'O aviso de atraso não está ativo neste ambiente.' });
+    const params = IdParams.safeParse(req.params);
+    const body = DelayBody.safeParse(req.body);
+    if (!params.success || !body.success) return bad(reply, `Informe o atraso em minutos (de ${MIN_DELAY_MIN} a ${MAX_DELAY_MIN}).`);
+    const tenantId = tenantOf(req);
+    const result = await requestDelayNotice(
+      {
+        admin: deps.admin,
+        appointments: deps.agenda.appointments,
+        notices: deps.delayNotice.notices,
+        scheduler: deps.delayNotice.scheduler,
+        now: deps.agenda.now,
+      },
+      { tenantId, appointmentId: params.data.id, delayMin: body.data.delayMin },
+    );
+    switch (result.kind) {
+      case 'queued':
+        req.log.info({ tenantId, appointmentId: params.data.id, delayMin: body.data.delayMin }, 'aviso de atraso enfileirado');
+        return reply.code(202).send({ ok: true });
+      case 'already_requested':
+        return reply.code(200).send({ ok: true, duplicate: true });
+      case 'not_found':
+        return reply.code(404).send({ error: 'Agendamento não encontrado.' });
+      case 'invalid_delay':
+        return bad(reply, `Informe o atraso em minutos (de ${MIN_DELAY_MIN} a ${MAX_DELAY_MIN}).`);
+      case 'not_active':
+        return reply.code(409).send({ error: 'Só dá para avisar agendamentos ativos (não cancelados nem concluídos).' });
+      case 'out_of_window':
+        return reply.code(409).send({ error: 'O aviso vale para agendamentos que começam de 30 minutos atrás até 6 horas à frente.' });
+      case 'no_whatsapp':
+        return reply.code(409).send({ error: 'Essa cliente não tem WhatsApp neste sistema. Ligue para ela.' });
+      case 'opted_out':
+        return reply.code(409).send({ error: 'Essa cliente pediu para não receber mensagens. Ligue para ela.' });
+    }
   });
 
   auth.get('/free-slots', async (req, reply) => {

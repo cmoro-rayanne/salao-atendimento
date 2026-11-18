@@ -15,6 +15,8 @@ import {
 import { PgAgendaAdminRepository } from './adapters/db/agenda-admin-repository.js';
 import { PgAppointmentRepository, PgCatalogRepository } from './adapters/db/agenda-repositories.js';
 import { createSql } from './adapters/db/client.js';
+import { PgDelayNoticeRepository } from './adapters/db/delay-notice-repository.js';
+import { BullDelayNoticeScheduler } from './adapters/queue/delay-notice-queue.js';
 import { AnthropicLlmClient } from './adapters/llm/anthropic-client.js';
 import { PgProcessedEventStore } from './adapters/db/processed-event-store.js';
 import { createAlerts } from './adapters/alerts/create-alerts.js';
@@ -38,6 +40,8 @@ const jwtSecret = new TextEncoder().encode(env.JWT_SECRET);
 
 const catalog = new PgCatalogRepository(sql);
 const appointmentReminders = new BullAppointmentReminderScheduler(redis);
+const delayNoticeQueue = new BullDelayNoticeScheduler(redis);
+const delayNotices = new PgDelayNoticeRepository(sql);
 
 const alerts = createAlerts(env, redis, pino({ level: env.LOG_LEVEL }));
 
@@ -67,7 +71,8 @@ const app = buildServer({
     knowledge: new PgKnowledgeAdminRepository(sql),
     catalog,
     agendaAdmin: new PgAgendaAdminRepository(sql),
-    agenda: { catalog, appointments: new PgAppointmentRepository(sql), reminders: appointmentReminders, now: () => new Date() },
+    agenda: { catalog, appointments: new PgAppointmentRepository(sql), reminders: appointmentReminders, delayNotices, now: () => new Date() },
+    delayNotice: { notices: delayNotices, scheduler: delayNoticeQueue },
     clients: new PgClientAdminRepository(sql),
     settings: new PgTenantSettingsRepository(sql),
     unanswered: new PgUnansweredQuestionRepository(sql),
@@ -88,6 +93,7 @@ async function shutdown(signal: string): Promise<void> {
   await app.close();
   await queue.close();
   await appointmentReminders.close();
+  await delayNoticeQueue.close();
   await redis.quit();
   await sql.end();
   process.exit(0);
