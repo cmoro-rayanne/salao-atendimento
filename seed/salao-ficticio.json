@@ -252,14 +252,14 @@
     {
       "nome": "Progressiva e escova",
       "duracaoMin": 180,
-      "precoCentavos": 30000,
-      "descricao": "Valor para cabelo médio; curto ou longo, a equipe confirma"
+      "precoCentavos": null,
+      "descricao": "Valor combinado com a equipe, conforme o cabelo"
     },
     {
       "nome": "Penteado",
       "duracaoMin": 60,
-      "precoCentavos": 15000,
-      "descricao": null
+      "precoCentavos": null,
+      "descricao": "Valor combinado com a equipe, conforme o penteado"
     }
   ]
 }

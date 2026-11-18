@@ -48,6 +48,15 @@ describe('salão fictício (carga de teste)', () => {
     expect(slots).toContain('Carla');
   });
 
+  it('serviços sem valor aparecem como "a combinar" e a IA é instruída a não informar preço', async () => {
+    const { deps } = build();
+    const text = await listServices(deps, ctx('+5541999990001', 'Ana'));
+    const line = (nome: string) => text.split('\n').find((l) => l.includes(nome))!;
+    expect(line('Penteado')).toContain('valor a combinar (não informe valor)');
+    expect(line('Progressiva e escova')).toContain('valor a combinar');
+    expect(line('Corte cabelo médio')).toContain('135');
+  });
+
   it('a mesma hora serve duas clientes (uma com cada profissional) e a terceira vai para outro horário', async () => {
     const { deps, id, agenda } = build();
     const gel = id('Unha em gel mão');
