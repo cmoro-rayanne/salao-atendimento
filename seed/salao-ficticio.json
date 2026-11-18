@@ -156,19 +156,19 @@
     {
       "nome": "Manicure (mão normal, esmalte comum)",
       "duracaoMin": 45,
-      "precoCentavos": 4000,
+      "precoCentavos": 3500,
       "descricao": null
     },
     {
       "nome": "Pé normal (esmalte comum)",
       "duracaoMin": 45,
-      "precoCentavos": 4500,
+      "precoCentavos": 3500,
       "descricao": null
     },
     {
       "nome": "Mão e pé normal",
       "duracaoMin": 90,
-      "precoCentavos": 8000,
+      "precoCentavos": 6500,
       "descricao": null
     },
     {
@@ -180,19 +180,19 @@
     {
       "nome": "Esmaltação em gel pé",
       "duracaoMin": 60,
-      "precoCentavos": 7500,
+      "precoCentavos": 8000,
       "descricao": null
     },
     {
       "nome": "Unha em gel mão",
       "duracaoMin": 90,
-      "precoCentavos": 15000,
+      "precoCentavos": 18000,
       "descricao": null
     },
     {
       "nome": "Unha em gel pé",
       "duracaoMin": 90,
-      "precoCentavos": 16000,
+      "precoCentavos": 19000,
       "descricao": null
     },
     {
@@ -204,61 +204,61 @@
     {
       "nome": "Corte cabelo curto",
       "duracaoMin": 45,
-      "precoCentavos": 7000,
+      "precoCentavos": 11000,
       "descricao": null
     },
     {
       "nome": "Corte cabelo médio",
       "duracaoMin": 60,
-      "precoCentavos": 9000,
+      "precoCentavos": 13500,
       "descricao": null
     },
     {
       "nome": "Corte cabelo longo",
       "duracaoMin": 75,
-      "precoCentavos": 11000,
+      "precoCentavos": 16000,
       "descricao": null
     },
     {
       "nome": "Escova cabelo curto",
       "duracaoMin": 30,
-      "precoCentavos": 5000,
+      "precoCentavos": 6000,
       "descricao": null
     },
     {
       "nome": "Escova cabelo médio",
       "duracaoMin": 45,
-      "precoCentavos": 6500,
+      "precoCentavos": 7500,
       "descricao": null
     },
     {
       "nome": "Escova cabelo longo",
       "duracaoMin": 60,
-      "precoCentavos": 8500,
+      "precoCentavos": 9500,
       "descricao": null
     },
     {
       "nome": "Corte e escova",
       "duracaoMin": 105,
-      "precoCentavos": 15000,
-      "descricao": "Preço do comprimento médio; longo e curto a confirmar com a equipe"
+      "precoCentavos": 19000,
+      "descricao": "Valor para cabelo médio; curto ou longo, a equipe confirma"
     },
     {
       "nome": "Hidratação e escova",
       "duracaoMin": 90,
-      "precoCentavos": 12000,
-      "descricao": null
+      "precoCentavos": 20000,
+      "descricao": "Valor para cabelo médio; curto ou longo, a equipe confirma"
     },
     {
       "nome": "Progressiva e escova",
       "duracaoMin": 180,
-      "precoCentavos": 28000,
-      "descricao": null
+      "precoCentavos": 30000,
+      "descricao": "Valor para cabelo médio; curto ou longo, a equipe confirma"
     },
     {
       "nome": "Penteado",
       "duracaoMin": 60,
-      "precoCentavos": 12000,
+      "precoCentavos": 15000,
       "descricao": null
     }
   ]
